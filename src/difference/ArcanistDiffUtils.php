@@ -38,7 +38,9 @@ final class ArcanistDiffUtils {
     Filesystem::writeFile($file_new, (string)$new."\n");
 
     list($err, $stdout) = exec_manual(
-      "/usr/bin/diff {$diff_options} -U {$context_lines} %s %s",
+      'diff %C -U %s %s %s',
+      $diff_options,
+      $context_lines,
       $file_old,
       $file_new);
 
@@ -121,6 +123,12 @@ final class ArcanistDiffUtils {
     $highlight_o = '<span class="bright">';
     $highlight_c = '</span>';
 
+    $is_html = false;
+    if ($str instanceof PhutilSafeHTML) {
+      $is_html = true;
+      $str = $str->getHTMLContent();
+    }
+
     $n = strlen($str);
     for ($i = 0; $i < $n; $i++) {
 
@@ -174,6 +182,11 @@ final class ArcanistDiffUtils {
         $highlight = false;
       }
     }
+
+    if ($is_html) {
+      return phutil_safe_html($buf);
+    }
+
     return $buf;
   }
 

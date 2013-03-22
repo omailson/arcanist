@@ -80,48 +80,50 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
       }
       $xml = new SimpleXMLElement($status);
 
-      if (count($xml->target) != 1) {
-        throw new Exception("Expected exactly one XML status target.");
-      }
-
       $externals = array();
       $files = array();
 
-      $target = $xml->target[0];
-      $this->svnBaseRevisions = array();
-      foreach ($target->entry as $entry) {
-        $path = (string)$entry['path'];
-        $mask = 0;
+      foreach ($xml->target as $target) {
+        $this->svnBaseRevisions = array();
+        foreach ($target->entry as $entry) {
+          $path = (string)$entry['path'];
+          // On Windows, we get paths with backslash directory separators here.
+          // Normalize them to the format everything else expects and generates.
+          if (phutil_is_windows()) {
+            $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+          }
+          $mask = 0;
 
-        $props = (string)($entry->{'wc-status'}[0]['props']);
-        $item  = (string)($entry->{'wc-status'}[0]['item']);
+          $props = (string)($entry->{'wc-status'}[0]['props']);
+          $item  = (string)($entry->{'wc-status'}[0]['item']);
 
-        $base = (string)($entry->{'wc-status'}[0]['revision']);
-        $this->svnBaseRevisions[$path] = $base;
+          $base = (string)($entry->{'wc-status'}[0]['revision']);
+          $this->svnBaseRevisions[$path] = $base;
 
-        switch ($props) {
-          case 'none':
-          case 'normal':
-            break;
-          case 'modified':
-            $mask |= self::FLAG_MODIFIED;
-            break;
-          default:
-            throw new Exception("Unrecognized property status '{$props}'.");
+          switch ($props) {
+            case 'none':
+            case 'normal':
+              break;
+            case 'modified':
+              $mask |= self::FLAG_MODIFIED;
+              break;
+            default:
+              throw new Exception("Unrecognized property status '{$props}'.");
+          }
+
+          $mask |= $this->parseSVNStatus($item);
+          if ($item == 'external') {
+            $externals[] = $path;
+          }
+
+          // This is new in or around Subversion 1.6.
+          $tree_conflicts = ($entry->{'wc-status'}[0]['tree-conflicted']);
+          if ((string)$tree_conflicts) {
+            $mask |= self::FLAG_CONFLICT;
+          }
+
+          $files[$path] = $mask;
         }
-
-        $mask |= $this->parseSVNStatus($item);
-        if ($item == 'external') {
-          $externals[] = $path;
-        }
-
-        // This is new in or around Subversion 1.6.
-        $tree_conflicts = (string)($entry->{'wc-status'}[0]['tree-conflicted']);
-        if ($tree_conflicts) {
-          $mask |= self::FLAG_CONFLICT;
-        }
-
-        $files[$path] = $mask;
       }
 
       foreach ($files as $path => $mask) {
@@ -149,6 +151,8 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
 
   private function parseSVNStatus($item) {
     switch ($item) {
+      case 'none':
+        // We can get 'none' for property changes on a directory.
       case 'normal':
         return 0;
       case 'external':
@@ -180,9 +184,17 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
   }
 
   public function addToCommit(array $paths) {
-    $this->execxLocal(
-      'add -- %Ls',
-      $paths);
+    $add = array_filter($paths, 'Filesystem::pathExists');
+    if ($add) {
+      $this->execxLocal(
+        'add -- %Ls',
+        $add);
+    }
+    if ($add != $paths) {
+      $this->execxLocal(
+        'delete -- %Ls',
+        array_diff($paths, $add));
+    }
   }
 
   public function getSVNProperty($path, $property) {
@@ -373,7 +385,7 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
       if ($mime != 'application/octet-stream') {
         execx(
           'svn propset svn:mime-type application/octet-stream %s',
-          $this->getPath($path));
+          self::escapeFileNameForSVN($this->getPath($path)));
       }
     }
 
@@ -484,10 +496,16 @@ EODIFF;
   }
 
   public function getChangedFiles($since_commit) {
+    $url = '';
+    $match = null;
+    if (preg_match('/(.*)@(.*)/', $since_commit, $match)) {
+      list(, $url, $since_commit) = $match;
+    }
     // TODO: Handle paths with newlines.
     list($stdout) = $this->execxLocal(
-      '--xml diff --revision %s:HEAD --summarize',
-      $since_commit);
+      '--xml diff --revision %s:HEAD --summarize %s',
+      $since_commit,
+      $url);
     $xml = new SimpleXMLElement($stdout);
 
     $return = array();
@@ -625,6 +643,28 @@ EODIFF;
 
   public function updateWorkingCopy() {
     $this->execxLocal('up');
+  }
+
+  public static function escapeFileNamesForSVN(array $files) {
+    foreach ($files as $k => $file) {
+      $files[$k] = self::escapeFileNameForSVN($file);
+    }
+    return $files;
+  }
+
+  public static function escapeFileNameForSVN($file) {
+    // SVN interprets "x@1" as meaning "file x at revision 1", which is not
+    // intended for files named "sprite@2x.png" or similar. For files with an
+    // "@" in their names, escape them by adding "@" at the end, which SVN
+    // interprets as "at the working copy revision". There is a special case
+    // where ".@" means "fail with an error" instead of ". at the working copy
+    // revision", so avoid escaping "." into ".@".
+
+    if (strpos($file, '@') !== false) {
+      $file = $file.'@';
+    }
+
+    return $file;
   }
 
 }
