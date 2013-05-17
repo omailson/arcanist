@@ -74,6 +74,32 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
     return $stdout;
   }
 
+  public function getHashFromFromSVNRevisionNumber($revision_id) {
+    $matches = array();
+    $string = hgsprintf('svnrev(%s)', $revision_id);
+    list($stdout) = $this->execxLocal(
+      'log -l 1 --template %s -r %s --',
+      '{node}',
+       $string);
+    if (!$stdout) {
+      throw new ArcanistUsageException("Cannot find the HG equivalent "
+                                       ."of {$revision_id} given.");
+    }
+    return $stdout;
+  }
+
+
+  public function getSVNRevisionNumberFromHash($hash) {
+    $matches = array();
+    list($stdout) = $this->execxLocal(
+      'log -r %s --template {svnrev}', $hash);
+    if (!$stdout) {
+      throw new ArcanistUsageException("Cannot find the SVN equivalent "
+                                       ."of {$hash} given.");
+    }
+    return $stdout;
+  }
+
   public function getSourceControlPath() {
     return '/';
   }
@@ -96,9 +122,15 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
         $commit = $this->getCanonicalRevisionName(
           hgsprintf('ancestor(%s,.)', $symbolic_commit));
       } catch (Exception $ex) {
-        throw new ArcanistUsageException(
+        // Try it as a revset instead of a commit id
+        try {
+          $commit = $this->getCanonicalRevisionName(
+            hgsprintf('ancestor(%R,.)', $symbolic_commit));
+        } catch (Exception $ex) {
+          throw new ArcanistUsageException(
           "Commit '{$symbolic_commit}' is not a valid Mercurial commit ".
           "identifier.");
+        }
       }
 
       $this->setBaseCommitExplanation("it is the greatest common ancestor of ".
@@ -199,8 +231,8 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
     if ($this->localCommitInfo === null) {
       $base_commit = $this->getBaseCommit();
       list($info) = $this->execxLocal(
-        "log --template '%C' --rev %s --branch %s --",
-        "{node}\1{rev}\1{author|emailuser}\1{author|email}\1".
+        "log --template %s --rev %s --branch %s --",
+        "{node}\1{rev}\1{author}\1".
           "{date|rfc822date}\1{branch}\1{tag}\1{parents}\1{desc}\2",
         hgsprintf('(%s::. - %s)', $base_commit, $base_commit),
         $this->getBranchName());
@@ -212,8 +244,12 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
 
       $commits = array();
       foreach ($logs as $log) {
-        list($node, $rev, $author, $author_email, $date, $branch, $tag,
+        list($node, $rev, $full_author, $date, $branch, $tag,
           $parents, $desc) = explode("\1", $log, 9);
+
+        $email = new PhutilEmailAddress($full_author);
+        $author = $email->getDisplayName();
+        $author_email = $email->getAddress();
 
         // NOTE: If a commit has only one parent, {parents} returns empty.
         // If it has two parents, {parents} returns revs and short hashes, not
@@ -683,7 +719,10 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
   }
 
   public function getAuthor() {
-    return $this->getMercurialConfig('ui.username');
+    $full_author = $this->getMercurialConfig('ui.username');
+    $email = new PhutilEmailAddress($full_author);
+    $author = $email->getDisplayName();
+    return $author;
   }
 
   public function addToCommit(array $paths) {
@@ -702,7 +741,11 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
     $this->reloadWorkingCopy();
   }
 
-  public function amendCommit($message) {
+  public function amendCommit($message = null) {
+    if ($message === null) {
+      $message = $this->getCommitMessage('.');
+    }
+
     $tmp_file = new TempFile();
     Filesystem::writeFile($tmp_file, $message);
     $this->execxLocal(
@@ -725,6 +768,20 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
     return trim($summary);
   }
 
+  public function backoutCommit($commit_hash) {
+    $this->execxLocal(
+      'backout -r %s', $commit_hash);
+    $this->reloadWorkingCopy();
+    if (!$this->getUncommittedStatus()) {
+      throw new ArcanistUsageException(
+        "{$commit_hash} has already been reverted.");
+    }
+  }
+
+  public function getBackoutMessage($commit_hash) {
+    return "Backed out changeset ".$commit_hash.".";
+  }
+
   public function resolveBaseCommitRule($rule, $source) {
     list($type, $name) = explode(':', $rule, 2);
 
@@ -743,19 +800,25 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
           if (!$err) {
             $this->setBaseCommitExplanation(
               "it is the greatest common ancestor of '{$matches[1]}' and ., as".
-              "specified by '{$rule}' in your {$source} 'base' ".
+              " specified by '{$rule}' in your {$source} 'base' ".
               "configuration.");
             return trim($merge_base);
           }
         } else {
-          list($err) = $this->execManualLocal(
-            'id -r %s',
-            $name);
+          list($err, $commit) = $this->execManualLocal(
+            'log --template {node} --rev %s',
+            hgsprintf('%s', $name));
+
+          if ($err) {
+            list($err, $commit) = $this->execManualLocal(
+              'log --template {node} --rev %s',
+              $name);
+          }
           if (!$err) {
             $this->setBaseCommitExplanation(
               "it is specified by '{$rule}' in your {$source} 'base' ".
               "configuration.");
-            return $name;
+            return trim($commit);
           }
         }
         break;
@@ -815,7 +878,35 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
               "you specified '{$rule}' in your {$source} 'base' ".
               "configuration.");
             return $this->getCanonicalRevisionName('.^');
-        }
+          default:
+            if (preg_match('/^nodiff\((.+)\)$/', $name, $matches)) {
+              list($results) = $this->execxLocal(
+                'log --template %s --rev %s',
+                '{node}\1{desc}\2',
+                sprintf('ancestor(.,%s)::.^', $matches[1]));
+              $results = array_reverse(explode("\2", trim($results)));
+
+              foreach ($results as $result) {
+                if (empty($result)) {
+                  continue;
+                }
+
+                list($node, $desc) = explode("\1", $result, 2);
+
+                $message = ArcanistDifferentialCommitMessage::newFromRawCorpus(
+                  $desc);
+                if ($message->getRevisionID()) {
+                  $this->setBaseCommitExplanation(
+                    "it is the first ancestor of . that has a diff ".
+                    "and is the gca or a descendant of the gca with ".
+                    "'{$matches[1]}', specified by '{$rule}' in your ".
+                    "{$source} 'base' configuration.");
+                  return $node;
+                }
+              }
+            }
+            break;
+          }
         break;
       default:
         return null;

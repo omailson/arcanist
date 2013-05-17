@@ -21,6 +21,7 @@ final class ArcanistLandWorkflow extends ArcanistBaseWorkflow {
   private $shouldUpdateWithRebase;
   private $branchType;
   private $ontoType;
+  private $preview;
 
   private $revision;
   private $messageFile;
@@ -120,16 +121,39 @@ EOTEXT
         ),
       ),
       'update-with-rebase' => array(
-        'help'    => 'When updating the feature branch, use rebase intead of '.
-                     'merge. This might make things work better in some cases.',
+        'help'    => 'When updating the feature branch, use rebase instead of '.
+                     'merge. This might make things work better in some cases.'.
+                     ' Set arc.land.update.default to \'rebase\' to make this '.
+                     'default.',
         'conflicts' => array(
           'merge' => 'The --merge strategy does not update the feature branch.',
+          'update-with-merge' => 'Cannot be used with --update-with-merge.',
+        ),
+        'supports' => array(
+          'git',
+        ),
+      ),
+      'update-with-merge' => array(
+        'help'    => 'When updating the feature branch, use merge instead of '.
+                     'rebase. This is the default behavior. '.
+                     'Setting arc.land.update.default to \'merge\' can also '.
+                     'be used to make this the default.',
+        'conflicts' => array(
+          'merge' => 'The --merge strategy does not update the feature branch.',
+          'update-with-rebase' => 'Cannot be used with --update-with-rebase.',
+        ),
+        'supports' => array(
+          'git',
         ),
       ),
       'revision' => array(
         'param' => 'id',
         'help'  => 'Use the message from a specific revision, rather than '.
                    'inferring the revision based on branch content.',
+      ),
+      'preview' => array(
+        'help' => 'Prints the commits that would be landed. Does not actually '.
+                  'modify or land the commits.'
       ),
       '*' => 'branch',
     );
@@ -144,6 +168,12 @@ EOTEXT
     } catch (Exception $ex) {
       $this->restoreBranch();
       throw $ex;
+    }
+
+    $this->printPendingCommits();
+    if ($this->preview) {
+      $this->restoreBranch();
+      return 0;
     }
 
     $this->checkoutBranch();
@@ -211,7 +241,19 @@ EOTEXT
     }
     $this->branch = head($branch);
     $this->keepBranch = $this->getArgument('keep-branch');
-    $this->shouldUpdateWithRebase = $this->getArgument('update-with-rebase');
+
+    $working_copy = $this->getWorkingCopy();
+    $update_strategy = $working_copy->getConfigFromAnySource(
+      'arc.land.update.default',
+      'merge');
+    $this->shouldUpdateWithRebase = $update_strategy == 'rebase';
+    if ($this->getArgument('update-with-rebase')) {
+      $this->shouldUpdateWithRebase = true;
+    } else if ($this->getArgument('update-with-merge')) {
+      $this->shouldUpdateWithRebase = false;
+    }
+
+    $this->preview = $this->getArgument('preview');
 
     if (!$this->branchType) {
       $this->branchType = $this->getBranchType($this->branch);
@@ -219,7 +261,7 @@ EOTEXT
 
     $onto_default = $this->isGit ? 'master' : 'default';
     $onto_default = nonempty(
-      $this->getWorkingCopy()->getConfigFromAnySource('arc.land.onto.default'),
+      $working_copy->getConfigFromAnySource('arc.land.onto.default'),
       $onto_default);
     $this->onto = $this->getArgument('onto', $onto_default);
     $this->ontoType = $this->getBranchType($this->onto);
@@ -250,9 +292,9 @@ EOTEXT
 
     if ($this->onto == $this->branch) {
       $message =
-        "You can not land a {$this->branchType} onto itself -- you are trying".
-        "to land '{$this->branch}' onto '{$this->onto}'. For more".
-        "information on how to push changes, see 'Pushing and Closing".
+        "You can not land a {$this->branchType} onto itself -- you are trying ".
+        "to land '{$this->branch}' onto '{$this->onto}'. For more ".
+        "information on how to push changes, see 'Pushing and Closing ".
         "Revisions' in 'Arcanist User Guide: arc diff' in the documentation.";
       if (!$this->isHistoryImmutable()) {
         $message .= " You may be able to 'arc amend' instead.";
@@ -304,6 +346,41 @@ EOTEXT
     echo phutil_console_format(
       "Switched to {$this->branchType} **%s**. Identifying and merging...\n",
       $this->branch);
+  }
+
+  private function printPendingCommits() {
+    $repository_api = $this->getRepositoryAPI();
+
+    if ($repository_api instanceof ArcanistGitAPI) {
+      list($out) = $repository_api->execxLocal(
+        'log --oneline %s %s --',
+        $this->branch,
+        '^'.$this->onto);
+    } else if ($repository_api instanceof ArcanistMercurialAPI) {
+      $common_ancestor = $repository_api->getCanonicalRevisionName(
+        hgsprintf('ancestor(%s,%s)',
+          $this->onto,
+          $this->branch));
+
+      $branch_range = hgsprintf(
+        'reverse((%s::%s) - %s)',
+        $common_ancestor,
+        $this->branch,
+        $common_ancestor);
+
+      list($out) = $repository_api->execxLocal(
+        'log -r %s --template %s',
+        $branch_range,
+        '{node|short} {desc|firstline}\n');
+    }
+
+    if (!trim($out)) {
+      $this->restoreBranch();
+      throw new ArcanistUsageException(
+          "No commits to land from {$this->branch}.");
+    }
+
+    echo "The following commit(s) will be landed:\n\n{$out}\n";
   }
 
   private function findRevision() {
@@ -537,7 +614,7 @@ EOTEXT
         }
       } else {
         $err = phutil_passthru(
-          'git merge %s -m %s',
+          'git merge --no-stat %s -m %s',
           $this->onto,
           "Automatic merge by 'arc land'");
         if ($err) {
@@ -583,7 +660,7 @@ EOTEXT
     if ($this->isGit) {
       $repository_api->execxLocal('checkout %s', $this->onto);
       $repository_api->execxLocal(
-        'merge --squash --ff-only %s',
+        'merge --no-stat --squash --ff-only %s',
         $this->branch);
     } else if ($this->isHg) {
       // The hg code is a little more complex than git's because we
@@ -754,7 +831,7 @@ EOTEXT
     chdir($repository_api->getPath());
     if ($this->isGit) {
       $err = phutil_passthru(
-        'git merge --no-ff --no-commit %s',
+        'git merge --no-stat --no-ff --no-commit %s',
         $this->branch);
 
       if ($err) {
