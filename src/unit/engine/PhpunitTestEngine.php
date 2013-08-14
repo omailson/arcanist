@@ -57,6 +57,9 @@ final class PhpunitTestEngine extends ArcanistBaseUnitTestEngine {
     $futures = array();
     $tmpfiles = array();
     foreach ($this->affectedTests as $class_path => $test_path) {
+      if(!Filesystem::pathExists($test_path)) {
+        continue;
+      }
       $json_tmp = new TempFile();
       $clover_tmp = null;
       $clover = null;
@@ -82,7 +85,8 @@ final class PhpunitTestEngine extends ArcanistBaseUnitTestEngine {
 
       list($err, $stdout, $stderr) = $future->resolve();
 
-      $results[] = $this->parseTestResults($test_path,
+      $results[] = $this->parseTestResults(
+        $test,
         $tmpfiles[$test]['json'],
         $tmpfiles[$test]['clover']);
     }
