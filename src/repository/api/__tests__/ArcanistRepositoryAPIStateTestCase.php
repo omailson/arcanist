@@ -37,6 +37,17 @@ final class ArcanistRepositoryAPIStateTestCase extends ArcanistTestCase {
       $working_copy);
     $api->setBaseCommitArgumentRules('arc:this');
 
+    if ($api instanceof ArcanistSubversionAPI) {
+      // Upgrade the repository so that the test will still pass if the local
+      // `svn` is newer than the `svn` which created the repository.
+
+      // NOTE: Some versions of Subversion (1.7.x?) exit with an error code on
+      // a no-op upgrade, although newer versions do not. We just ignore the
+      // error here; if it's because of an actual problem we'll hit an error
+      // shortly anyway.
+      $api->execManualLocal('upgrade');
+    }
+
     $this->assertCorrectState($test, $api);
   }
 

@@ -150,6 +150,11 @@ try {
   $workflow->setWorkingDirectory($working_directory);
   $workflow->parseArguments($args);
 
+  // Write the command into the environment so that scripts (for example, local
+  // Git commit hooks) can detect that they're being run via `arc` and change
+  // their behaviors.
+  putenv('ARCANIST='.$command);
+
   if ($force_conduit_version) {
     $workflow->forceConduitVersion($force_conduit_version);
   }
@@ -206,6 +211,12 @@ try {
     $ca_bundle = Filesystem::resolvePath(
       $ca_bundle, $working_copy->getProjectRoot());
     HTTPSFuture::setGlobalCABundleFromPath($ca_bundle);
+  }
+
+  $blind_key = 'https.blindly-trust-domains';
+  $blind_trust = $working_copy->getConfigFromAnySource($blind_key);
+  if ($blind_trust) {
+    HTTPSFuture::setBlindlyTrustDomains($blind_trust);
   }
 
   if ($need_conduit) {
