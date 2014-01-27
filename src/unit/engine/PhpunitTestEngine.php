@@ -71,8 +71,10 @@ final class PhpunitTestEngine extends ArcanistBaseUnitTestEngine {
 
       $config = $this->configFile ? csprintf('-c %s', $this->configFile) : null;
 
-      $futures[$test_path] = new ExecFuture('%C %C --log-json %s %C %s',
-        $this->phpunitBinary, $config, $json_tmp, $clover, $test_path);
+      $stderr = "-d display_errors=stderr";
+
+      $futures[$test_path] = new ExecFuture('%C %C %C --log-json %s %C %s',
+        $this->phpunitBinary, $config, $stderr, $json_tmp, $clover, $test_path);
       $tmpfiles[$test_path] = array(
         'json' => $json_tmp,
         'clover' => $clover_tmp,
@@ -89,7 +91,8 @@ final class PhpunitTestEngine extends ArcanistBaseUnitTestEngine {
       $results[] = $this->parseTestResults(
         $test,
         $tmpfiles[$test]['json'],
-        $tmpfiles[$test]['clover']);
+        $tmpfiles[$test]['clover'],
+        $stderr);
     }
 
     return array_mergev($results);
@@ -99,18 +102,20 @@ final class PhpunitTestEngine extends ArcanistBaseUnitTestEngine {
    * Parse test results from phpunit json report
    *
    * @param string $path Path to test
-   * @param string $json_path Path to phpunit json report
+   * @param string $json_tmp Path to phpunit json report
    * @param string $clover_tmp Path to phpunit clover report
+   * @param string $stderr Data written to stderr
    *
    * @return array
    */
-  private function parseTestResults($path, $json_tmp, $clover_tmp) {
+  private function parseTestResults($path, $json_tmp, $clover_tmp, $stderr) {
     $test_results = Filesystem::readFile($json_tmp);
     return id(new PhpunitResultParser())
       ->setEnableCoverage($this->getEnableCoverage())
       ->setProjectRoot($this->projectRoot)
       ->setCoverageFile($clover_tmp)
       ->setAffectedTests($this->affectedTests)
+      ->setStderr($stderr)
       ->parseTestResults($path, $test_results);
   }
 
@@ -257,8 +262,10 @@ final class PhpunitTestEngine extends ArcanistBaseUnitTestEngine {
    */
   private function prepareConfigFile() {
     $project_root = $this->projectRoot . DIRECTORY_SEPARATOR;
+    $config = $this->getConfigurationManager()->getConfigFromAnySource(
+      'phpunit_config');
 
-    if ($config = $this->getWorkingCopy()->getConfig('phpunit_config')) {
+    if ($config) {
       if (Filesystem::pathExists($project_root . $config)) {
         $this->configFile = $project_root . $config;
       } else {
@@ -266,7 +273,9 @@ final class PhpunitTestEngine extends ArcanistBaseUnitTestEngine {
           'found in ' . $project_root . $config);
       }
     }
-    if ($bin = $this->getWorkingCopy()->getConfig('unit.phpunit.binary')) {
+    $bin = $this->getConfigurationManager()->getConfigFromAnySource(
+      'unit.phpunit.binary');
+    if ($bin) {
       if (Filesystem::binaryExists($bin)) {
         $this->phpunitBinary = $bin;
       }

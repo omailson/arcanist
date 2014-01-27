@@ -1,14 +1,19 @@
 <?php
 
 /**
- * Facilitiates implementation of test cases for @{class:ArcanistLinter}s.
+ * Facilitates implementation of test cases for @{class:ArcanistLinter}s.
  *
  * @group testcase
  */
 abstract class ArcanistLinterTestCase extends ArcanistPhutilTestCase {
 
   public function executeTestsInDirectory($root, ArcanistLinter $linter) {
-    foreach (Filesystem::listDirectory($root, $hidden = false) as $file) {
+    $files = id(new FileFinder($root))
+      ->withType('f')
+      ->withSuffix('lint-test')
+      ->find();
+
+    foreach ($files as $file) {
       $this->lintFile($root.$file, $linter);
     }
   }
@@ -71,9 +76,13 @@ abstract class ArcanistLinterTestCase extends ArcanistPhutilTestCase {
         $dir,
         $config_file,
         'Unit Test');
+      $configuration_manager = new ArcanistConfigurationManager();
+      $configuration_manager->setWorkingCopyIdentity($working_copy);
+
 
       $engine = new UnitTestableArcanistLintEngine();
       $engine->setWorkingCopy($working_copy);
+      $engine->setConfigurationManager($configuration_manager);
       $engine->setPaths(array($path));
 
       $engine->setCommitHookMode(idx($config, 'hook', false));
@@ -110,6 +119,8 @@ abstract class ArcanistLinterTestCase extends ArcanistPhutilTestCase {
             $caught_exception = true;
           }
         }
+      } else if ($exception instanceof ArcanistUsageException) {
+        $this->assertSkipped($exception->getMessage());
       }
       $exception_message = $exception->getMessage()."\n\n".
                            $exception->getTraceAsString();

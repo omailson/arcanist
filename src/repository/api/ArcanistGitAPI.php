@@ -197,7 +197,7 @@ final class ArcanistGitAPI extends ArcanistRepositoryAPI {
     }
 
     if ($this->getBaseCommitArgumentRules() ||
-        $this->getWorkingCopyIdentity()->getConfigFromAnySource('base')) {
+        $this->getConfigurationManager()->getConfigFromAnySource('base')) {
       $base = $this->resolveBaseCommit();
       if (!$base) {
         throw new ArcanistUsageException(
@@ -212,7 +212,7 @@ final class ArcanistGitAPI extends ArcanistRepositoryAPI {
     $default_relative = null;
     $working_copy = $this->getWorkingCopyIdentity();
     if ($working_copy) {
-      $default_relative = $working_copy->getConfig(
+      $default_relative = $working_copy->getProjectConfig(
         'git.default-relative-commit');
       $this->setBaseCommitExplanation(
         "it is the merge-base of '{$default_relative}' and HEAD, as ".
@@ -369,6 +369,18 @@ final class ArcanistGitAPI extends ArcanistRepositoryAPI {
     if (preg_match('/^\* ([^\(].*)$/m', $stdout, $matches)) {
       return $matches[1];
     }
+
+    return null;
+  }
+
+  public function getRemoteURI() {
+    list($stdout) = $this->execxLocal('remote show -n origin');
+
+    $matches = null;
+    if (preg_match('/^\s*Fetch URL: (.*)$/m', $stdout, $matches)) {
+      return trim($matches[1]);
+    }
+
     return null;
   }
 
@@ -473,13 +485,10 @@ final class ArcanistGitAPI extends ArcanistRepositoryAPI {
         'ls-files --others --exclude-standard',
       ));
 
-    // TODO: This doesn't list unstaged adds. It's not clear how to get that
-    // list other than "git status --porcelain" and then parsing it. :/
-
     // Unstaged changes
     $unstaged_future = $this->buildLocalFuture(
       array(
-        'ls-files -m',
+        'diff-files --name-only',
       ));
 
     $futures = array(

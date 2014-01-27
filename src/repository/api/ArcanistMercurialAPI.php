@@ -139,7 +139,7 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
     }
 
     if ($this->getBaseCommitArgumentRules() ||
-        $this->getWorkingCopyIdentity()->getConfigFromAnySource('base')) {
+        $this->getConfigurationManager()->getConfigFromAnySource('base')) {
       $base = $this->resolveBaseCommit();
       if (!$base) {
         throw new ArcanistUsageException(
@@ -323,14 +323,16 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
       $this->getBaseCommit(),
       $path);
 
+    $lines = phutil_split_lines($stdout, $retain_line_endings = true);
+
     $blame = array();
-    foreach (explode("\n", trim($stdout)) as $line) {
+    foreach ($lines as $line) {
       if (!strlen($line)) {
         continue;
       }
 
       $matches = null;
-      $ok = preg_match('/^\s*([^:]+?) [a-f0-9]{12}: (.*)$/', $line, $matches);
+      $ok = preg_match('/^\s*([^:]+?) ([a-f0-9]{12}):/', $line, $matches);
 
       if (!$ok) {
         throw new Exception("Unable to parse Mercurial blame line: {$line}");
@@ -984,22 +986,15 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
   }
 
   public function getBranches() {
+    list($stdout) = $this->execxLocal('--debug branches');
+    $lines = ArcanistMercurialParser::parseMercurialBranches($stdout);
+
     $branches = array();
-
-    list($raw_output) = $this->execxLocal('branches');
-    $raw_output = trim($raw_output);
-
-    foreach (explode("\n", $raw_output) as $line) {
-      // example line: default                 0:a5ead76cdf85 (inactive)
-      list($name, $rev_line) = $this->splitBranchOrBookmarkLine($line);
-
-      // strip off the '(inactive)' bit if it exists
-      $rev_parts = explode(' ', $rev_line);
-      $revision = $rev_parts[0];
-
+    foreach ($lines as $name => $spec) {
       $branches[] = array(
         'name' => $name,
-        'revision' => $revision);
+        'revision' => $spec['rev'],
+      );
     }
 
     return $branches;
@@ -1045,4 +1040,16 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
 
     return array(trim($name), trim($rev));
   }
+
+  public function getRemoteURI() {
+    list($stdout) = $this->execxLocal('paths default');
+
+    $stdout = trim($stdout);
+    if (strlen($stdout)) {
+      return $stdout;
+    }
+
+    return null;
+  }
+
 }
