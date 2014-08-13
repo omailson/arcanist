@@ -1,21 +1,25 @@
 <?php
 
 /**
- * Uses "PHP_CodeSniffer" to detect checkstyle errors in php code.
- * To use this linter, you must install PHP_CodeSniffer.
- * http://pear.php.net/package/PHP_CodeSniffer.
- *
- * Optional configurations in .arcconfig:
- *
- *   lint.phpcs.standard
- *   lint.phpcs.options
- *   lint.phpcs.bin
- *
- * @group linter
+ * Uses "PHP_CodeSniffer" to detect checkstyle errors in PHP code.
  */
 final class ArcanistPhpcsLinter extends ArcanistExternalLinter {
 
   private $reports;
+
+  public function getInfoName() {
+    return 'PHP_CodeSniffer';
+  }
+
+  public function getInfoURI() {
+    return 'http://pear.php.net/package/PHP_CodeSniffer/';
+  }
+
+  public function getInfoDescription() {
+    return pht(
+      'PHP_CodeSniffer tokenizes PHP, JavaScript and CSS files and '.
+      'detects violations of a defined set of coding standards.');
+  }
 
   public function getLinterName() {
     return 'PHPCS';
@@ -26,7 +30,7 @@ final class ArcanistPhpcsLinter extends ArcanistExternalLinter {
   }
 
   public function getMandatoryFlags() {
-    return '--report=xml';
+    return array('--report=xml');
   }
 
   public function getInstallInstructions() {
@@ -34,30 +38,41 @@ final class ArcanistPhpcsLinter extends ArcanistExternalLinter {
   }
 
   public function getDefaultFlags() {
-    // TODO: Deprecation warnings.
+    $options = $this->getDeprecatedConfiguration('lint.phpcs.options', array());
+    $standard = $this->getDeprecatedConfiguration('lint.phpcs.standard');
 
-    $config = $this->getEngine()->getConfigurationManager();
-
-    $options = $config->getConfigFromAnySource('lint.phpcs.options');
-
-    $standard = $config->getConfigFromAnySource('lint.phpcs.standard');
-    $options .= !empty($standard) ? ' --standard=' . $standard : '';
+    if (!empty($standard)) {
+      if (is_array($options)) {
+        $options[] = '--standard='.$standard;
+      } else {
+        $options .= ' --standard='.$standard;
+      }
+    }
 
     return $options;
   }
 
   public function getDefaultBinary() {
-    // TODO: Deprecation warnings.
-    $config = $this->getEngine()->getConfigurationManager();
-    $bin = $config->getConfigFromAnySource('lint.phpcs.bin');
-    if ($bin) {
-      return $bin;
-    }
+    return $this->getDeprecatedConfiguration('lint.phpcs.bin', 'phpcs');
+  }
 
-    return 'phpcs';
+  public function getVersion() {
+    list($stdout) = execx('%C --version', $this->getExecutableCommand());
+
+    $matches = array();
+    $regex = '/^PHP_CodeSniffer version (?P<version>\d+\.\d+\.\d+)\b/';
+    if (preg_match($regex, $stdout, $matches)) {
+      return $matches['version'];
+    } else {
+      return false;
+    }
   }
 
   public function shouldExpectCommandErrors() {
+    return true;
+  }
+
+  public function supportsReadDataFromStdin() {
     return true;
   }
 

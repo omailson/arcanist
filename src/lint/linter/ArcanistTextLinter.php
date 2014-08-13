@@ -2,30 +2,61 @@
 
 /**
  * Enforces basic text file rules.
- *
- * @group linter
  */
 final class ArcanistTextLinter extends ArcanistLinter {
 
-  const LINT_DOS_NEWLINE            = 1;
-  const LINT_TAB_LITERAL            = 2;
-  const LINT_LINE_WRAP              = 3;
-  const LINT_EOF_NEWLINE            = 4;
-  const LINT_BAD_CHARSET            = 5;
-  const LINT_TRAILING_WHITESPACE    = 6;
-  const LINT_NO_COMMIT              = 7;
-  const LINT_BOF_WHITESPACE         = 8;
-  const LINT_EOF_WHITESPACE         = 9;
+  const LINT_DOS_NEWLINE          = 1;
+  const LINT_TAB_LITERAL          = 2;
+  const LINT_LINE_WRAP            = 3;
+  const LINT_EOF_NEWLINE          = 4;
+  const LINT_BAD_CHARSET          = 5;
+  const LINT_TRAILING_WHITESPACE  = 6;
+  const LINT_NO_COMMIT            = 7;
+  const LINT_BOF_WHITESPACE       = 8;
+  const LINT_EOF_WHITESPACE       = 9;
 
   private $maxLineLength = 120;
+
+  public function getInfoName() {
+    return pht('Basic Text Linter');
+  }
+
+  public function getInfoDescription() {
+    return pht(
+      'Enforces basic text rules like line length, character encoding, '.
+      'and trailing whitespace.');
+  }
 
   public function getLinterPriority() {
     return 0.5;
   }
 
+  public function getLinterConfigurationOptions() {
+    $options = array(
+      'text.max-line-length' => array(
+        'type' => 'optional int',
+        'help' => pht(
+          'Adjust the maximum line length before a warning is raised. By '.
+          'default, a warning is raised on lines exceeding 80 characters.'),
+      ),
+    );
+
+    return $options + parent::getLinterConfigurationOptions();
+  }
+
   public function setMaxLineLength($new_length) {
     $this->maxLineLength = $new_length;
     return $this;
+  }
+
+  public function setLinterConfigurationValue($key, $value) {
+    switch ($key) {
+      case 'text.max-line-length':
+        $this->setMaxLineLength($value);
+        return;
+    }
+
+    return parent::setLinterConfigurationValue($key, $value);
   }
 
   public function getLinterName() {
@@ -38,24 +69,24 @@ final class ArcanistTextLinter extends ArcanistLinter {
 
   public function getLintSeverityMap() {
     return array(
-      self::LINT_LINE_WRAP => ArcanistLintSeverity::SEVERITY_WARNING,
+      self::LINT_LINE_WRAP           => ArcanistLintSeverity::SEVERITY_WARNING,
       self::LINT_TRAILING_WHITESPACE => ArcanistLintSeverity::SEVERITY_AUTOFIX,
-      self::LINT_BOF_WHITESPACE => ArcanistLintSeverity::SEVERITY_AUTOFIX,
-      self::LINT_EOF_WHITESPACE => ArcanistLintSeverity::SEVERITY_AUTOFIX,
+      self::LINT_BOF_WHITESPACE      => ArcanistLintSeverity::SEVERITY_AUTOFIX,
+      self::LINT_EOF_WHITESPACE      => ArcanistLintSeverity::SEVERITY_AUTOFIX,
     );
   }
 
   public function getLintNameMap() {
     return array(
-      self::LINT_DOS_NEWLINE          => pht('DOS Newlines'),
-      self::LINT_TAB_LITERAL          => pht('Tab Literal'),
-      self::LINT_LINE_WRAP            => pht('Line Too Long'),
-      self::LINT_EOF_NEWLINE          => pht('File Does Not End in Newline'),
-      self::LINT_BAD_CHARSET          => pht('Bad Charset'),
-      self::LINT_TRAILING_WHITESPACE  => pht('Trailing Whitespace'),
-      self::LINT_NO_COMMIT            => pht('Explicit %s', '@no'.'commit'),
-      self::LINT_BOF_WHITESPACE       => pht('Leading Whitespace at BOF'),
-      self::LINT_EOF_WHITESPACE       => pht('Trailing Whitespace at EOF'),
+      self::LINT_DOS_NEWLINE         => pht('DOS Newlines'),
+      self::LINT_TAB_LITERAL         => pht('Tab Literal'),
+      self::LINT_LINE_WRAP           => pht('Line Too Long'),
+      self::LINT_EOF_NEWLINE         => pht('File Does Not End in Newline'),
+      self::LINT_BAD_CHARSET         => pht('Bad Charset'),
+      self::LINT_TRAILING_WHITESPACE => pht('Trailing Whitespace'),
+      self::LINT_NO_COMMIT           => pht('Explicit %s', '@no'.'commit'),
+      self::LINT_BOF_WHITESPACE      => pht('Leading Whitespace at BOF'),
+      self::LINT_EOF_WHITESPACE      => pht('Trailing Whitespace at EOF'),
     );
   }
 
@@ -139,7 +170,7 @@ final class ArcanistTextLinter extends ArcanistLinter {
       $this->raiseLintAtOffset(
         strlen($data),
         self::LINT_EOF_NEWLINE,
-        "Files must end in a newline.",
+        'Files must end in a newline.',
         '',
         "\n");
     }
@@ -221,7 +252,7 @@ final class ArcanistTextLinter extends ArcanistLinter {
     $this->raiseLintAtOffset(
       $offset,
       self::LINT_BOF_WHITESPACE,
-      'This file contains leading whitespace at the beginning of the file. ' .
+      'This file contains leading whitespace at the beginning of the file. '.
       'This is unnecessary and should be avoided when possible.',
       $string,
       '');
@@ -245,7 +276,7 @@ final class ArcanistTextLinter extends ArcanistLinter {
     $this->raiseLintAtOffset(
       $offset,
       self::LINT_EOF_WHITESPACE,
-      'This file contains trailing whitespace at the end of the file. This ' .
+      'This file contains trailing whitespace at the end of the file. This '.
       'is unnecessary and should be avoided when possible.',
       $string,
       '');

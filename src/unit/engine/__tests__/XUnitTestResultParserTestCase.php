@@ -2,11 +2,6 @@
 
 /**
  * Test for @{class:ArcanistXUnitTestResultParser}.
- *
- * (putting tests in your tests so you can test
- * while you test)
- *
- * @group testcase
  */
 final class XUnitTestResultParserTestCase extends ArcanistTestCase {
 
@@ -37,6 +32,8 @@ final class XUnitTestResultParserTestCase extends ArcanistTestCase {
     } catch (Exception $e) {
       // OK
     }
+
+    $this->assertTrue(true);
   }
 
   public function testInvalidXmlInputFailure() {
@@ -50,6 +47,8 @@ final class XUnitTestResultParserTestCase extends ArcanistTestCase {
     } catch (Exception $e) {
       // OK
     }
+
+    $this->assertTrue(true);
   }
 
 }

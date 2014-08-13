@@ -2,8 +2,6 @@
 
 /**
  * Parses diffs from a working copy.
- *
- * @group diff
  */
 final class ArcanistDiffParser {
 
@@ -193,6 +191,22 @@ final class ArcanistDiffParser {
       throw new Exception("Can't parse an empty diff!");
     }
 
+    // Detect `git-format-patch`, by looking for a "---" line somewhere in
+    // the file and then a footer with Git version number, which looks like
+    // this:
+    //
+    //   --
+    //   1.8.4.2
+    //
+    // Note that `git-format-patch` adds a space after the "--", but we don't
+    // require it when detecting patches, as trailing whitespace can easily be
+    // lost in transit.
+    $detect_patch = '/^---$.*^-- ?[\s\d.]+\z/ms';
+    $message = null;
+    if (preg_match($detect_patch, $diff)) {
+      list($message, $diff) = $this->stripGitFormatPatch($diff);
+    }
+
     $this->didStartParse($diff);
 
     // Strip off header comments. While `patch` allows comments anywhere in the
@@ -203,12 +217,20 @@ final class ArcanistDiffParser {
       $line = $this->nextLine();
     }
 
+    if (strlen($message)) {
+      // If we found a message during pre-parse steps, add it to the resulting
+      // changes here.
+      $change = $this->buildChange(null)
+        ->setType(ArcanistDiffChangeType::TYPE_MESSAGE)
+        ->setMetadata('message', $message);
+    }
+
     do {
       $patterns = array(
         // This is a normal SVN text change, probably from "svn diff".
         '(?P<type>Index): (?P<cur>.+)',
         // This is an SVN text change, probably from "svnlook diff".
-        '(?P<type>Modified|Added|Deleted): (?P<cur>.+)',
+        '(?P<type>Modified|Added|Deleted|Copied): (?P<cur>.+)',
         // This is an SVN property change, probably from "svn diff".
         '(?P<type>Property changes on): (?P<cur>.+)',
         // This is a git commit message, probably from "git show".
@@ -255,7 +277,7 @@ final class ArcanistDiffParser {
           "Expected a hunk header, like 'Index: /path/to/file.ext' (svn), ".
           "'Property changes on: /path/to/file.ext' (svn properties), ".
           "'commit 59bcc3ad6775562f845953cf01624225' (git show), ".
-          "'diff --git' (git diff), '--- filename' (unified diff), or " .
+          "'diff --git' (git diff), '--- filename' (unified diff), or ".
           "'diff -r' (hg diff or patch).");
       }
 
@@ -290,6 +312,7 @@ final class ArcanistDiffParser {
         case 'Modified':
         case 'Added':
         case 'Deleted':
+        case 'Copied':
           $this->parseIndexHunk($change);
           break;
         case 'Property changes on':
@@ -324,7 +347,7 @@ final class ArcanistDiffParser {
           $this->parseIndexHunk($change);
           break;
         default:
-          $this->didFailParse("Unknown diff type.");
+          $this->didFailParse('Unknown diff type.');
           break;
       }
     } while ($this->getLine() !== null);
@@ -428,7 +451,6 @@ final class ArcanistDiffParser {
   }
 
   private function parseSVNPropertyChange($op, $prop) {
-
     $old = array();
     $new = array();
 
@@ -501,7 +523,7 @@ final class ArcanistDiffParser {
 
   protected function setIsGit($git) {
     if ($this->isGit !== null && $this->isGit != $git) {
-      throw new Exception("Git status has changed!");
+      throw new Exception('Git status has changed!');
     }
     $this->isGit = $git;
     return $this;
@@ -792,7 +814,7 @@ final class ArcanistDiffParser {
         $this->nextNonemptyLine();
         return;
       } else if (!preg_match('/^[a-zA-Z]/', $line)) {
-        $this->didFailParse("Expected base85 line length character (a-zA-Z).");
+        $this->didFailParse('Expected base85 line length character (a-zA-Z).');
       }
     } while (true);
   }
@@ -830,6 +852,14 @@ final class ArcanistDiffParser {
   }
 
   protected function parseChangeset(ArcanistDiffChange $change) {
+    // If a diff includes two sets of changes to the same file, let the
+    // second one win. In particular, this occurs when adding subdirectories
+    // in Subversion that contain files: the file text will be present in
+    // both the directory diff and the file diff. See T5555. Dropping the
+    // hunks lets whichever one shows up later win instead of showing changes
+    // twice.
+    $change->dropHunks();
+
     $all_changes = array();
     do {
       $hunk = new ArcanistDiffHunk();
@@ -853,7 +883,7 @@ final class ArcanistDiffParser {
           $line = $this->nextNonemptyLine();
           $ok = preg_match('/^Property changes on:/', $line);
           if (!$ok) {
-            $this->didFailParse("Confused by empty line");
+            $this->didFailParse('Confused by empty line');
           }
           $line = $this->nextLine();
           return $this->parsePropertyHunk($change);
@@ -941,7 +971,7 @@ final class ArcanistDiffParser {
       }
 
       if ($old_len || $new_len) {
-        $this->didFailParse("Found the wrong number of hunk lines.");
+        $this->didFailParse('Found the wrong number of hunk lines.');
       }
 
       $corpus = implode('', $real);
@@ -1049,7 +1079,7 @@ final class ArcanistDiffParser {
 
   protected function getLine() {
     if ($this->text === null) {
-      throw new Exception("Not parsing!");
+      throw new Exception('Not parsing!');
     }
     if (isset($this->text[$this->line])) {
       return $this->text[$this->line];
@@ -1143,7 +1173,7 @@ final class ArcanistDiffParser {
     $context = '';
     for ($ii = $min; $ii <= $max; $ii++) {
       $context .= sprintf(
-        "%8.8s %6.6s   %s",
+        '%8.8s %6.6s   %s',
         ($ii == $this->line) ? '>>>  ' : '',
         $ii + 1,
         $this->text[$ii]);
@@ -1157,7 +1187,7 @@ final class ArcanistDiffParser {
       $temp->setPreserveFile(true);
 
       Filesystem::writeFile($temp, $this->rawDiff);
-      $out[] = "Raw input file was written to: ".(string)$temp;
+      $out[] = 'Raw input file was written to: '.(string)$temp;
     }
 
     $out[] = $context;
@@ -1344,6 +1374,43 @@ final class ArcanistDiffParser {
     $new = self::stripGitPathPrefix($new);
 
     return array($old, $new);
+  }
+
+
+  /**
+   * Strip the header and footer off a `git-format-patch` diff.
+   *
+   * Returns a parseable normal diff and a textual commit message.
+   */
+  private function stripGitFormatPatch($diff) {
+    // We can parse this by splitting it into two pieces over and over again
+    // along different section dividers:
+    //
+    //   1. Mail headers.
+    //   2. ("\n\n")
+    //   3. Mail body.
+    //   4. ("---")
+    //   5. Diff stat section.
+    //   6. ("\n\n")
+    //   7. Actual diff body.
+    //   8. ("--")
+    //   9. Patch footer.
+
+    list($head, $tail) = preg_split('/^---$/m', $diff, 2);
+    list($mail_headers, $mail_body) = explode("\n\n", $head, 2);
+    list($body, $foot) = preg_split('/^-- ?$/m', $tail, 2);
+    list($stat, $diff) = explode("\n\n", $body, 2);
+
+    // Rebuild the commit message by putting the subject line back on top of it,
+    // if we can find one.
+    $matches = null;
+    $pattern = '/^Subject: (?:\[PATCH\] )?(.*)$/mi';
+    if (preg_match($pattern, $mail_headers, $matches)) {
+      $mail_body = $matches[1]."\n\n".$mail_body;
+      $mail_body = rtrim($mail_body);
+    }
+
+    return array($mail_body, $diff);
   }
 
 }

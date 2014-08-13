@@ -1,19 +1,21 @@
 <?php
 
 /**
- * Uses "CSS lint" to detect checkstyle errors in css code.
- * To use this linter, you must install CSS lint.
- * ##npm install csslint -g## (don't forget the -g flag or NPM will install
- * the package locally).
- *
- * Based on ArcanistPhpcsLinter.php
- *
- *   lint.csslint.options
- *   lint.csslint.bin
- *
- * @group linter
+ * Uses "CSS Lint" to detect checkstyle errors in css code.
  */
 final class ArcanistCSSLintLinter extends ArcanistExternalLinter {
+
+  public function getInfoName() {
+    return 'CSSLint';
+  }
+
+  public function getInfoURI() {
+    return 'http://csslint.net';
+  }
+
+  public function getInfoDescription() {
+    return pht('Use `csslint` to detect issues with CSS source files.');
+  }
 
   public function getLinterName() {
     return 'CSSLint';
@@ -24,31 +26,37 @@ final class ArcanistCSSLintLinter extends ArcanistExternalLinter {
   }
 
   public function getMandatoryFlags() {
-    return '--format=lint-xml';
+    return array(
+      '--format=lint-xml',
+      '--quiet',
+    );
   }
 
   public function getDefaultFlags() {
-    $config = $this->getEngine()->getConfigurationManager();
-
-    $options = $config->getConfigFromAnySource('lint.csslint.options');
-    // TODO: Deprecation warning.
-
-    return $options;
+    return $this->getDeprecatedConfiguration('lint.csslint.options', array());
   }
 
   public function getDefaultBinary() {
-    // TODO: Deprecation warning.
-    $config = $this->getEngine()->getConfigurationManager();
-    $bin = $config->getConfigFromAnySource('lint.csslint.bin');
-    if ($bin) {
-      return $bin;
-    }
+    return $this->getDeprecatedConfiguration('lint.csslint.bin', 'csslint');
+  }
 
-    return 'csslint';
+  public function getVersion() {
+    list($stdout) = execx('%C --version', $this->getExecutableCommand());
+
+    $matches = array();
+    if (preg_match('/^v(?P<version>\d+\.\d+\.\d+)$/', $stdout, $matches)) {
+      return $matches['version'];
+    } else {
+      return false;
+    }
   }
 
   public function getInstallInstructions() {
     return pht('Install CSSLint using `npm install -g csslint`.');
+  }
+
+  public function shouldExpectCommandErrors() {
+    return true;
   }
 
   protected function parseLinterOutput($path, $err, $stdout, $stderr) {
@@ -82,7 +90,7 @@ final class ArcanistCSSLintLinter extends ArcanistExternalLinter {
         $message->setDescription($child->getAttribute('reason'));
         $message->setSeverity($severity);
 
-        if ($child->hasAttribute('line')) {
+        if ($child->hasAttribute('line') && $child->getAttribute('line') > 0) {
           $line = $lines[$child->getAttribute('line') - 1];
           $text = substr($line, $child->getAttribute('char') - 1);
           $message->setOriginalText($text);

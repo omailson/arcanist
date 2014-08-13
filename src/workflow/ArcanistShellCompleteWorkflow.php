@@ -2,10 +2,8 @@
 
 /**
  * Powers shell-completion scripts.
- *
- * @group workflow
  */
-final class ArcanistShellCompleteWorkflow extends ArcanistBaseWorkflow {
+final class ArcanistShellCompleteWorkflow extends ArcanistWorkflow {
 
   public function getWorkflowName() {
     return 'shell-complete';
@@ -30,8 +28,9 @@ EOTEXT
   public function getArguments() {
     return array(
       'current' => array(
-        'help' => 'Current term in the argument list being completed.',
         'param' => 'cursor_position',
+        'paramtype' => 'int',
+        'help' => 'Current term in the argument list being completed.',
       ),
       '*' => 'argv',
     );
@@ -42,12 +41,16 @@ EOTEXT
   }
 
   public function run() {
-
     $pos  = $this->getArgument('current');
     $argv = $this->getArgument('argv', array());
     $argc = count($argv);
     if ($pos === null) {
       $pos = $argc - 1;
+    }
+
+    if ($pos > $argc) {
+      throw new ArcanistUsageException(
+        'Specified position is greater than the number of arguments provided.');
     }
 
     // Determine which revision control system the working copy uses, so we
@@ -58,9 +61,9 @@ EOTEXT
     // We have to build our own because if we requiresWorkingCopy() we'll throw
     // if we aren't in a .arcconfig directory. We probably still can't do much,
     // but commands can raise more detailed errors.
-    $working_copy = ArcanistWorkingCopyIdentity::newFromPath(getcwd());
     $configuration_manager = $this->getConfigurationManager();
-    if ($working_copy->getProjectRoot()) {
+    $working_copy = ArcanistWorkingCopyIdentity::newFromPath(getcwd());
+    if ($working_copy->getVCSType()) {
       $configuration_manager->setWorkingCopyIdentity($working_copy);
       $repository_api = ArcanistRepositoryAPI::newAPIFromConfigurationManager(
         $configuration_manager);
@@ -70,7 +73,7 @@ EOTEXT
 
     $arc_config = $this->getArcanistConfiguration();
 
-    if ($pos == 1) {
+    if ($pos <= 1) {
       $workflows = $arc_config->buildAllWorkflows();
 
       $complete = array();
@@ -81,8 +84,7 @@ EOTEXT
 
         $supported = $workflow->getSupportedRevisionControlSystems();
 
-        $ok = (in_array('any', $supported)) ||
-              (in_array($vcs, $supported));
+        $ok = (in_array('any', $supported) || in_array($vcs, $supported));
         if (!$ok) {
           continue;
         }
@@ -146,7 +148,6 @@ EOTEXT
         }
         return 0;
       } else {
-
         $output = array();
         foreach ($arguments as $argument => $spec) {
           if ($argument == '*') {
@@ -181,7 +182,7 @@ EOTEXT
             $branches = ipull($branches, 'name');
             $output = $branches;
           } else {
-            $output = array("FILE");
+            $output = array('FILE');
           }
         }
 
@@ -191,4 +192,5 @@ EOTEXT
       }
     }
   }
+
 }

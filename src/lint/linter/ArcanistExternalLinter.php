@@ -17,7 +17,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
 
 /* -(  Interpreters, Binaries and Flags  )----------------------------------- */
 
-
   /**
    * Return the default binary name or binary path where the external linter
    * lives. This can either be a binary name which is expected to be installed
@@ -33,7 +32,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
    */
   abstract public function getDefaultBinary();
 
-
   /**
    * Return a human-readable string describing how to install the linter. This
    * is normally something like "Install such-and-such by running `npm install
@@ -43,7 +41,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
    * @task bin
    */
   abstract public function getInstallInstructions();
-
 
   /**
    * Return true to continue when the external linter exits with an error code.
@@ -61,7 +58,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
   public function shouldExpectCommandErrors() {
     return false;
   }
-
 
   /**
    * Return true to indicate that the external linter can read input from
@@ -93,7 +89,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
     return false;
   }
 
-
   /**
    * If the linter can read data over stdin, override
    * @{method:supportsReadDataFromStdin} and then optionally override this
@@ -108,7 +103,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
     return null;
   }
 
-
   /**
    * Provide mandatory, non-overridable flags to the linter. Generally these
    * are format flags, like `--format=xml`, which must always be given for
@@ -117,13 +111,12 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
    * Flags which are not mandatory should be provided in
    * @{method:getDefaultFlags} instead.
    *
-   * @return string|null  Mandatory flags, like `"--format=xml"`.
+   * @return list<string>  Mandatory flags, like `"--format=xml"`.
    * @task bin
    */
   protected function getMandatoryFlags() {
-    return null;
+    return array();
   }
-
 
   /**
    * Provide default, overridable flags to the linter. Generally these are
@@ -133,27 +126,25 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
    *
    * Default flags can be overridden with @{method:setFlags}.
    *
-   * @return string|null  Overridable default flags.
+   * @return list<string>  Overridable default flags.
    * @task bin
    */
   protected function getDefaultFlags() {
-    return null;
+    return array();
   }
-
 
   /**
    * Override default flags with custom flags. If not overridden, flags provided
    * by @{method:getDefaultFlags} are used.
    *
-   * @param string New flags.
+   * @param list<string> New flags.
    * @return this
    * @task bin
    */
   final public function setFlags($flags) {
-    $this->flags = $flags;
+    $this->flags = (array)$flags;
     return $this;
   }
-
 
   /**
    * Return the binary or script to execute. This method synthesizes defaults
@@ -166,7 +157,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
     return coalesce($this->bin, $this->getDefaultBinary());
   }
 
-
   /**
    * Override the default binary with a new one.
    *
@@ -178,7 +168,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
     $this->bin = $bin;
     return $this;
   }
-
 
   /**
    * Return true if this linter should use an interpreter (like "python" or
@@ -194,7 +183,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
     return false;
   }
 
-
   /**
    * Return the default interpreter, like "python" or "node". This method is
    * only invoked if @{method:shouldUseInterpreter} has been overridden to
@@ -204,9 +192,8 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
    * @task bin
    */
   public function getDefaultInterpreter() {
-    throw new Exception("Incomplete implementation!");
+    throw new Exception('Incomplete implementation!');
   }
-
 
   /**
    * Get the effective interpreter. This method synthesizes configuration and
@@ -218,7 +205,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
   final public function getInterpreter() {
     return coalesce($this->interpreter, $this->getDefaultInterpreter());
   }
-
 
   /**
    * Set the interpreter, overriding any default.
@@ -234,7 +220,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
 
 
 /* -(  Parsing Linter Output  )---------------------------------------------- */
-
 
   /**
    * Parse the output of the external lint program into objects of class
@@ -259,7 +244,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
 
 
 /* -(  Executing the Linter  )----------------------------------------------- */
-
 
   /**
    * Check that the binary and interpreter (if applicable) exist, and throw
@@ -315,7 +299,6 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
     }
   }
 
-
   /**
    * Get the composed executable command, including the interpreter and binary
    * but without flags or paths. This can be used to execute `--version`
@@ -324,7 +307,7 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
    * @return string Command to execute the raw linter.
    * @task exec
    */
-  protected function getExecutableCommand() {
+  final protected function getExecutableCommand() {
     $this->checkBinaryConfiguration();
 
     $interpreter = null;
@@ -343,26 +326,59 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
     return $bin;
   }
 
-
   /**
    * Get the composed flags for the executable, including both mandatory and
    * configured flags.
    *
-   * @return string Composed flags.
+   * @return list<string> Composed flags.
    * @task exec
    */
-  protected function getCommandFlags() {
-    return csprintf(
-      '%C %C',
-      $this->getMandatoryFlags(),
-      coalesce($this->flags, $this->getDefaultFlags()));
+  final protected function getCommandFlags() {
+    $mandatory_flags = $this->getMandatoryFlags();
+    if (!is_array($mandatory_flags)) {
+      phutil_deprecated(
+        'String support for flags.', 'You should use list<string> instead.');
+      $mandatory_flags = (array) $mandatory_flags;
+    }
+
+    $flags = nonempty($this->flags, $this->getDefaultFlags());
+    if (!is_array($flags)) {
+      phutil_deprecated(
+        'String support for flags.', 'You should use list<string> instead.');
+      $flags = (array) $flags;
+    }
+
+    return array_merge($mandatory_flags, $flags);
   }
 
+  public function getCacheVersion() {
+    $version = $this->getVersion();
 
-  protected function buildFutures(array $paths) {
+    if ($version) {
+      return $version.'-'.json_encode($this->getCommandFlags());
+    } else {
+      // Either we failed to parse the version number or the `getVersion`
+      // function hasn't been implemented.
+      return json_encode($this->getCommandFlags());
+    }
+  }
+
+  /**
+   * Prepare the path to be added to the command string.
+   *
+   * This method is expected to return an already escaped string.
+   *
+   * @param string Path to the file being linted
+   * @return string The command-ready file argument
+   */
+  protected function getPathArgumentForLinterFuture($path) {
+    return csprintf('%s', $path);
+  }
+
+  final protected function buildFutures(array $paths) {
     $executable = $this->getExecutableCommand();
 
-    $bin = csprintf('%C %C', $executable, $this->getCommandFlags());
+    $bin = csprintf('%C %Ls', $executable, $this->getCommandFlags());
 
     $futures = array();
     foreach ($paths as $path) {
@@ -375,16 +391,18 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
       } else {
         // TODO: In commit hook mode, we need to do more handling here.
         $disk_path = $this->getEngine()->getFilePathOnDisk($path);
-        $future = new ExecFuture('%C %s', $bin, $disk_path);
+        $path_argument = $this->getPathArgumentForLinterFuture($disk_path);
+        $future = new ExecFuture('%C %C', $bin, $path_argument);
       }
 
+      $future->setCWD($this->getEngine()->getWorkingCopy()->getProjectRoot());
       $futures[$path] = $future;
     }
 
     return $futures;
   }
 
-  protected function resolveFuture($path, Future $future) {
+  final protected function resolveFuture($path, Future $future) {
     list($err, $stdout, $stderr) = $future->resolve();
     if ($err && !$this->shouldExpectCommandErrors()) {
       $future->resolvex();
@@ -406,15 +424,33 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
     }
   }
 
-
   public function getLinterConfigurationOptions() {
     $options = array(
-      'bin' => 'optional string | list<string>',
-      'flags' => 'optional string',
+      'bin' => array(
+        'type' => 'optional string | list<string>',
+        'help' => pht(
+          'Specify a string (or list of strings) identifying the binary '.
+          'which should be invoked to execute this linter. This overrides '.
+          'the default binary. If you provide a list of possible binaries, '.
+          'the first one which exists will be used.')
+      ),
+      'flags' => array(
+        'type' => 'optional list<string>',
+        'help' => pht(
+          'Provide a list of additional flags to pass to the linter on the '.
+          'command line.'),
+      ),
     );
 
     if ($this->shouldUseInterpreter()) {
-      $options['interpreter'] = 'optional string | list<string>';
+      $options['interpreter'] = array(
+        'type' => 'optional string | list<string>',
+        'help' => pht(
+          'Specify a string (or list of strings) identifying the interpreter '.
+          'which should be used to invoke the linter binary. If you provide '.
+          'a list of possible interpreters, the first one that exists '.
+          'will be used.'),
+      );
     }
 
     return $options + parent::getLinterConfigurationOptions();
@@ -465,15 +501,18 @@ abstract class ArcanistExternalLinter extends ArcanistFutureLinter {
         throw new Exception(
           pht('None of the configured binaries can be located.'));
       case 'flags':
-        if (strlen($value)) {
-          $this->setFlags($value);
+        if (!is_array($value)) {
+          phutil_deprecated(
+            'String support for flags.',
+            'You should use list<string> instead.');
+          $value = (array) $value;
         }
+        $this->setFlags($value);
         return;
     }
 
     return parent::setLinterConfigurationValue($key, $value);
   }
-
 
   /**
    * Map a configuration lint code to an `arc` lint code. Primarily, this is
