@@ -344,7 +344,7 @@ phutil_register_library_map(array(
     'ArcanistSummaryLintRenderer' => 'ArcanistLintRenderer',
     'ArcanistSvnHookPreCommitWorkflow' => 'ArcanistWorkflow',
     'ArcanistTasksWorkflow' => 'ArcanistWorkflow',
-    'ArcanistTectWorkflow' => 'ArcanistBaseWorkflow',
+    'ArcanistTectWorkflow' => 'ArcanistWorkflow',
     'ArcanistTestCase' => 'ArcanistPhutilTestCase',
     'ArcanistTextLinter' => 'ArcanistLinter',
     'ArcanistTextLinterTestCase' => 'ArcanistArcanistLinterTestCase',

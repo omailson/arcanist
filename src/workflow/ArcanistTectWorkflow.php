@@ -22,7 +22,7 @@
  *
  * @group workflow
  */
-final class ArcanistTectWorkflow extends ArcanistBaseWorkflow {
+final class ArcanistTectWorkflow extends ArcanistWorkflow {
 
   public function getWorkflowName() {
     return "tect";
