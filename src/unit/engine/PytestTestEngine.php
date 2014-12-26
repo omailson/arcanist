@@ -13,7 +13,16 @@ final class PytestTestEngine extends ArcanistUnitTestEngine {
     $cover_tmp = new TempFile();
 
     $future = $this->buildTestFuture($junit_tmp, $cover_tmp);
-    $future->resolvex();
+    list($err, $stdout, $stderr) = $future->resolve();
+
+    if (!Filesystem::pathExists($junit_tmp)) {
+      throw new CommandException(
+        "Command failed with error #{$err}!",
+        $future->getCommand(),
+        $err,
+        $stdout,
+        $stderr);
+    }
 
     $future = new ExecFuture('coverage xml -o %s', $cover_tmp);
     $future->setCWD($this->project_root);
@@ -25,7 +34,7 @@ final class PytestTestEngine extends ArcanistUnitTestEngine {
   public function buildTestFuture($junit_tmp, $cover_tmp) {
     $paths = $this->getPaths();
 
-    $cmd_line = csprintf('py.test --junitxml %s', $junit_tmp);
+    $cmd_line = csprintf('py.test --junit-xml=%s', $junit_tmp);
 
     if ($this->getEnableCoverage() !== false) {
       $cmd_line = csprintf(
@@ -112,8 +121,7 @@ final class PytestTestEngine extends ArcanistUnitTestEngine {
 
         if (intval($line->getAttribute('hits')) == 0) {
             $coverage .= 'U';
-        }
-        else if (intval($line->getAttribute('hits')) > 0) {
+        } else if (intval($line->getAttribute('hits')) > 0) {
             $coverage .= 'C';
         }
 

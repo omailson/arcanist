@@ -564,7 +564,7 @@ final class ArcanistDiffParser {
           'rename from (?P<old>.*)',
           '(?P<move>rename) to (?P<cur>.*)',
           'copy from (?P<old>.*)',
-          '(?P<copy>copy) to (?P<cur>.*)'
+          '(?P<copy>copy) to (?P<cur>.*)',
         );
 
         $ok = false;
@@ -830,6 +830,10 @@ final class ArcanistDiffParser {
       $remainder = '\t.*';
     } else if ($this->isRCS) {
       $remainder = '\s.*';
+    } else if ($this->getIsGit()) {
+      // When filenames contain spaces, Git terminates this line with a tab.
+      // Normally, the tab is not present. If there's a tab, ignore it.
+      $remainder = '(?:\t.*)?';
     }
 
     $ok = preg_match(
