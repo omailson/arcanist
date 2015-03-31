@@ -5,52 +5,60 @@
  */
 final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
 
-  const LINT_PHP_SYNTAX_ERROR          = 1;
-  const LINT_UNABLE_TO_PARSE           = 2;
-  const LINT_VARIABLE_VARIABLE         = 3;
-  const LINT_EXTRACT_USE               = 4;
-  const LINT_UNDECLARED_VARIABLE       = 5;
-  const LINT_PHP_SHORT_TAG             = 6;
-  const LINT_PHP_ECHO_TAG              = 7;
-  const LINT_PHP_CLOSE_TAG             = 8;
-  const LINT_NAMING_CONVENTIONS        = 9;
-  const LINT_IMPLICIT_CONSTRUCTOR      = 10;
-  const LINT_DYNAMIC_DEFINE            = 12;
-  const LINT_STATIC_THIS               = 13;
-  const LINT_PREG_QUOTE_MISUSE         = 14;
-  const LINT_PHP_OPEN_TAG              = 15;
-  const LINT_TODO_COMMENT              = 16;
-  const LINT_EXIT_EXPRESSION           = 17;
-  const LINT_COMMENT_STYLE             = 18;
-  const LINT_CLASS_FILENAME_MISMATCH   = 19;
-  const LINT_TAUTOLOGICAL_EXPRESSION   = 20;
-  const LINT_PLUS_OPERATOR_ON_STRINGS  = 21;
-  const LINT_DUPLICATE_KEYS_IN_ARRAY   = 22;
-  const LINT_REUSED_ITERATORS          = 23;
-  const LINT_BRACE_FORMATTING          = 24;
-  const LINT_PARENTHESES_SPACING       = 25;
-  const LINT_CONTROL_STATEMENT_SPACING = 26;
-  const LINT_BINARY_EXPRESSION_SPACING = 27;
-  const LINT_ARRAY_INDEX_SPACING       = 28;
-  const LINT_IMPLICIT_FALLTHROUGH      = 30;
-  const LINT_REUSED_AS_ITERATOR        = 32;
-  const LINT_COMMENT_SPACING           = 34;
-  const LINT_SLOWNESS                  = 36;
-  const LINT_CLOSING_CALL_PAREN        = 37;
-  const LINT_CLOSING_DECL_PAREN        = 38;
-  const LINT_REUSED_ITERATOR_REFERENCE = 39;
-  const LINT_KEYWORD_CASING            = 40;
-  const LINT_DOUBLE_QUOTE              = 41;
-  const LINT_ELSEIF_USAGE              = 42;
-  const LINT_SEMICOLON_SPACING         = 43;
-  const LINT_CONCATENATION_OPERATOR    = 44;
-  const LINT_PHP_COMPATIBILITY         = 45;
-  const LINT_LANGUAGE_CONSTRUCT_PAREN  = 46;
-  const LINT_EMPTY_STATEMENT           = 47;
-  const LINT_ARRAY_SEPARATOR           = 48;
-  const LINT_CONSTRUCTOR_PARENTHESES   = 49;
+  const LINT_PHP_SYNTAX_ERROR           = 1;
+  const LINT_UNABLE_TO_PARSE            = 2;
+  const LINT_VARIABLE_VARIABLE          = 3;
+  const LINT_EXTRACT_USE                = 4;
+  const LINT_UNDECLARED_VARIABLE        = 5;
+  const LINT_PHP_SHORT_TAG              = 6;
+  const LINT_PHP_ECHO_TAG               = 7;
+  const LINT_PHP_CLOSE_TAG              = 8;
+  const LINT_NAMING_CONVENTIONS         = 9;
+  const LINT_IMPLICIT_CONSTRUCTOR       = 10;
+  const LINT_DYNAMIC_DEFINE             = 12;
+  const LINT_STATIC_THIS                = 13;
+  const LINT_PREG_QUOTE_MISUSE          = 14;
+  const LINT_PHP_OPEN_TAG               = 15;
+  const LINT_TODO_COMMENT               = 16;
+  const LINT_EXIT_EXPRESSION            = 17;
+  const LINT_COMMENT_STYLE              = 18;
+  const LINT_CLASS_FILENAME_MISMATCH    = 19;
+  const LINT_TAUTOLOGICAL_EXPRESSION    = 20;
+  const LINT_PLUS_OPERATOR_ON_STRINGS   = 21;
+  const LINT_DUPLICATE_KEYS_IN_ARRAY    = 22;
+  const LINT_REUSED_ITERATORS           = 23;
+  const LINT_BRACE_FORMATTING           = 24;
+  const LINT_PARENTHESES_SPACING        = 25;
+  const LINT_CONTROL_STATEMENT_SPACING  = 26;
+  const LINT_BINARY_EXPRESSION_SPACING  = 27;
+  const LINT_ARRAY_INDEX_SPACING        = 28;
+  const LINT_IMPLICIT_FALLTHROUGH       = 30;
+  const LINT_REUSED_AS_ITERATOR         = 32;
+  const LINT_COMMENT_SPACING            = 34;
+  const LINT_SLOWNESS                   = 36;
+  const LINT_CLOSING_CALL_PAREN         = 37;
+  const LINT_CLOSING_DECL_PAREN         = 38;
+  const LINT_REUSED_ITERATOR_REFERENCE  = 39;
+  const LINT_KEYWORD_CASING             = 40;
+  const LINT_DOUBLE_QUOTE               = 41;
+  const LINT_ELSEIF_USAGE               = 42;
+  const LINT_SEMICOLON_SPACING          = 43;
+  const LINT_CONCATENATION_OPERATOR     = 44;
+  const LINT_PHP_COMPATIBILITY          = 45;
+  const LINT_LANGUAGE_CONSTRUCT_PAREN   = 46;
+  const LINT_EMPTY_STATEMENT            = 47;
+  const LINT_ARRAY_SEPARATOR            = 48;
+  const LINT_CONSTRUCTOR_PARENTHESES    = 49;
+  const LINT_DUPLICATE_SWITCH_CASE      = 50;
+  const LINT_BLACKLISTED_FUNCTION       = 51;
+  const LINT_IMPLICIT_VISIBILITY        = 52;
+  const LINT_CALL_TIME_PASS_BY_REF      = 53;
+  const LINT_FORMATTED_STRING           = 54;
+  const LINT_UNNECESSARY_FINAL_MODIFIER = 55;
 
+  private $blacklistedFunctions = array();
   private $naminghook;
+  private $printfFunctions = array();
   private $switchhook;
   private $version;
   private $windowsVersion;
@@ -65,50 +73,56 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
 
   public function getLintNameMap() {
     return array(
-      self::LINT_PHP_SYNTAX_ERROR          => 'PHP Syntax Error!',
-      self::LINT_UNABLE_TO_PARSE           => 'Unable to Parse',
-      self::LINT_VARIABLE_VARIABLE         => 'Use of Variable Variable',
-      self::LINT_EXTRACT_USE               => 'Use of extract()',
-      self::LINT_UNDECLARED_VARIABLE       => 'Use of Undeclared Variable',
-      self::LINT_PHP_SHORT_TAG             => 'Use of Short Tag "<?"',
-      self::LINT_PHP_ECHO_TAG              => 'Use of Echo Tag "<?="',
-      self::LINT_PHP_CLOSE_TAG             => 'Use of Close Tag "?>"',
-      self::LINT_NAMING_CONVENTIONS        => 'Naming Conventions',
-      self::LINT_IMPLICIT_CONSTRUCTOR      => 'Implicit Constructor',
-      self::LINT_DYNAMIC_DEFINE            => 'Dynamic define()',
-      self::LINT_STATIC_THIS               => 'Use of $this in Static Context',
-      self::LINT_PREG_QUOTE_MISUSE         => 'Misuse of preg_quote()',
-      self::LINT_PHP_OPEN_TAG              => 'Expected Open Tag',
-      self::LINT_TODO_COMMENT              => 'TODO Comment',
-      self::LINT_EXIT_EXPRESSION           => 'Exit Used as Expression',
-      self::LINT_COMMENT_STYLE             => 'Comment Style',
-      self::LINT_CLASS_FILENAME_MISMATCH   => 'Class-Filename Mismatch',
-      self::LINT_TAUTOLOGICAL_EXPRESSION   => 'Tautological Expression',
-      self::LINT_PLUS_OPERATOR_ON_STRINGS  => 'Not String Concatenation',
-      self::LINT_DUPLICATE_KEYS_IN_ARRAY   => 'Duplicate Keys in Array',
-      self::LINT_REUSED_ITERATORS          => 'Reuse of Iterator Variable',
-      self::LINT_BRACE_FORMATTING          => 'Brace placement',
-      self::LINT_PARENTHESES_SPACING       => 'Spaces Inside Parentheses',
-      self::LINT_CONTROL_STATEMENT_SPACING => 'Space After Control Statement',
-      self::LINT_BINARY_EXPRESSION_SPACING => 'Space Around Binary Operator',
-      self::LINT_ARRAY_INDEX_SPACING       => 'Spacing Before Array Index',
-      self::LINT_IMPLICIT_FALLTHROUGH      => 'Implicit Fallthrough',
-      self::LINT_REUSED_AS_ITERATOR        => 'Variable Reused As Iterator',
-      self::LINT_COMMENT_SPACING           => 'Comment Spaces',
-      self::LINT_SLOWNESS                  => 'Slow Construct',
-      self::LINT_CLOSING_CALL_PAREN        => 'Call Formatting',
-      self::LINT_CLOSING_DECL_PAREN        => 'Declaration Formatting',
-      self::LINT_REUSED_ITERATOR_REFERENCE => 'Reuse of Iterator References',
-      self::LINT_KEYWORD_CASING            => 'Keyword Conventions',
-      self::LINT_DOUBLE_QUOTE              => 'Unnecessary Double Quotes',
-      self::LINT_ELSEIF_USAGE              => 'ElseIf Usage',
-      self::LINT_SEMICOLON_SPACING         => 'Semicolon Spacing',
-      self::LINT_CONCATENATION_OPERATOR    => 'Concatenation Spacing',
-      self::LINT_PHP_COMPATIBILITY         => 'PHP Compatibility',
-      self::LINT_LANGUAGE_CONSTRUCT_PAREN  => 'Language Construct Parentheses',
-      self::LINT_EMPTY_STATEMENT           => 'Empty Block Statement',
-      self::LINT_ARRAY_SEPARATOR           => 'Array Separator',
-      self::LINT_CONSTRUCTOR_PARENTHESES   => 'Constructor Parentheses',
+      self::LINT_PHP_SYNTAX_ERROR           => 'PHP Syntax Error!',
+      self::LINT_UNABLE_TO_PARSE            => 'Unable to Parse',
+      self::LINT_VARIABLE_VARIABLE          => 'Use of Variable Variable',
+      self::LINT_EXTRACT_USE                => 'Use of extract()',
+      self::LINT_UNDECLARED_VARIABLE        => 'Use of Undeclared Variable',
+      self::LINT_PHP_SHORT_TAG              => 'Use of Short Tag "<?"',
+      self::LINT_PHP_ECHO_TAG               => 'Use of Echo Tag "<?="',
+      self::LINT_PHP_CLOSE_TAG              => 'Use of Close Tag "?>"',
+      self::LINT_NAMING_CONVENTIONS         => 'Naming Conventions',
+      self::LINT_IMPLICIT_CONSTRUCTOR       => 'Implicit Constructor',
+      self::LINT_DYNAMIC_DEFINE             => 'Dynamic define()',
+      self::LINT_STATIC_THIS                => 'Use of $this in Static Context',
+      self::LINT_PREG_QUOTE_MISUSE          => 'Misuse of preg_quote()',
+      self::LINT_PHP_OPEN_TAG               => 'Expected Open Tag',
+      self::LINT_TODO_COMMENT               => 'TODO Comment',
+      self::LINT_EXIT_EXPRESSION            => 'Exit Used as Expression',
+      self::LINT_COMMENT_STYLE              => 'Comment Style',
+      self::LINT_CLASS_FILENAME_MISMATCH    => 'Class-Filename Mismatch',
+      self::LINT_TAUTOLOGICAL_EXPRESSION    => 'Tautological Expression',
+      self::LINT_PLUS_OPERATOR_ON_STRINGS   => 'Not String Concatenation',
+      self::LINT_DUPLICATE_KEYS_IN_ARRAY    => 'Duplicate Keys in Array',
+      self::LINT_REUSED_ITERATORS           => 'Reuse of Iterator Variable',
+      self::LINT_BRACE_FORMATTING           => 'Brace placement',
+      self::LINT_PARENTHESES_SPACING        => 'Spaces Inside Parentheses',
+      self::LINT_CONTROL_STATEMENT_SPACING  => 'Space After Control Statement',
+      self::LINT_BINARY_EXPRESSION_SPACING  => 'Space Around Binary Operator',
+      self::LINT_ARRAY_INDEX_SPACING        => 'Spacing Before Array Index',
+      self::LINT_IMPLICIT_FALLTHROUGH       => 'Implicit Fallthrough',
+      self::LINT_REUSED_AS_ITERATOR         => 'Variable Reused As Iterator',
+      self::LINT_COMMENT_SPACING            => 'Comment Spaces',
+      self::LINT_SLOWNESS                   => 'Slow Construct',
+      self::LINT_CLOSING_CALL_PAREN         => 'Call Formatting',
+      self::LINT_CLOSING_DECL_PAREN         => 'Declaration Formatting',
+      self::LINT_REUSED_ITERATOR_REFERENCE  => 'Reuse of Iterator References',
+      self::LINT_KEYWORD_CASING             => 'Keyword Conventions',
+      self::LINT_DOUBLE_QUOTE               => 'Unnecessary Double Quotes',
+      self::LINT_ELSEIF_USAGE               => 'ElseIf Usage',
+      self::LINT_SEMICOLON_SPACING          => 'Semicolon Spacing',
+      self::LINT_CONCATENATION_OPERATOR     => 'Concatenation Spacing',
+      self::LINT_PHP_COMPATIBILITY          => 'PHP Compatibility',
+      self::LINT_LANGUAGE_CONSTRUCT_PAREN   => 'Language Construct Parentheses',
+      self::LINT_EMPTY_STATEMENT            => 'Empty Block Statement',
+      self::LINT_ARRAY_SEPARATOR            => 'Array Separator',
+      self::LINT_CONSTRUCTOR_PARENTHESES    => 'Constructor Parentheses',
+      self::LINT_DUPLICATE_SWITCH_CASE      => 'Duplicate Case Statements',
+      self::LINT_BLACKLISTED_FUNCTION       => 'Use of Blacklisted Function',
+      self::LINT_IMPLICIT_VISIBILITY        => 'Implicit Method Visibility',
+      self::LINT_CALL_TIME_PASS_BY_REF      => 'Call-Time Pass-By-Reference',
+      self::LINT_FORMATTED_STRING           => 'Formatted String',
+      self::LINT_UNNECESSARY_FINAL_MODIFIER => 'Unnecessary Final Modifier',
     );
   }
 
@@ -126,40 +140,54 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
     $warning  = ArcanistLintSeverity::SEVERITY_WARNING;
 
     return array(
-      self::LINT_TODO_COMMENT              => $disabled,
-      self::LINT_UNABLE_TO_PARSE           => $warning,
-      self::LINT_NAMING_CONVENTIONS        => $warning,
-      self::LINT_PREG_QUOTE_MISUSE         => $advice,
-      self::LINT_BRACE_FORMATTING          => $warning,
-      self::LINT_PARENTHESES_SPACING       => $warning,
-      self::LINT_CONTROL_STATEMENT_SPACING => $warning,
-      self::LINT_BINARY_EXPRESSION_SPACING => $warning,
-      self::LINT_ARRAY_INDEX_SPACING       => $warning,
-      self::LINT_IMPLICIT_FALLTHROUGH      => $warning,
-      self::LINT_SLOWNESS                  => $warning,
-      self::LINT_COMMENT_SPACING           => $advice,
-      self::LINT_CLOSING_CALL_PAREN        => $warning,
-      self::LINT_CLOSING_DECL_PAREN        => $warning,
-      self::LINT_REUSED_ITERATOR_REFERENCE => $warning,
-      self::LINT_KEYWORD_CASING            => $warning,
-      self::LINT_DOUBLE_QUOTE              => $advice,
-      self::LINT_ELSEIF_USAGE              => $advice,
-      self::LINT_SEMICOLON_SPACING         => $advice,
-      self::LINT_CONCATENATION_OPERATOR    => $warning,
-      self::LINT_LANGUAGE_CONSTRUCT_PAREN  => $warning,
-      self::LINT_EMPTY_STATEMENT           => $advice,
-      self::LINT_ARRAY_SEPARATOR           => $advice,
-      self::LINT_CONSTRUCTOR_PARENTHESES   => $advice,
+      self::LINT_TODO_COMMENT               => $disabled,
+      self::LINT_UNABLE_TO_PARSE            => $warning,
+      self::LINT_NAMING_CONVENTIONS         => $warning,
+      self::LINT_PREG_QUOTE_MISUSE          => $advice,
+      self::LINT_BRACE_FORMATTING           => $warning,
+      self::LINT_PARENTHESES_SPACING        => $warning,
+      self::LINT_CONTROL_STATEMENT_SPACING  => $warning,
+      self::LINT_BINARY_EXPRESSION_SPACING  => $warning,
+      self::LINT_ARRAY_INDEX_SPACING        => $warning,
+      self::LINT_IMPLICIT_FALLTHROUGH       => $warning,
+      self::LINT_SLOWNESS                   => $warning,
+      self::LINT_COMMENT_SPACING            => $advice,
+      self::LINT_CLOSING_CALL_PAREN         => $warning,
+      self::LINT_CLOSING_DECL_PAREN         => $warning,
+      self::LINT_REUSED_ITERATOR_REFERENCE  => $warning,
+      self::LINT_KEYWORD_CASING             => $warning,
+      self::LINT_DOUBLE_QUOTE               => $advice,
+      self::LINT_ELSEIF_USAGE               => $advice,
+      self::LINT_SEMICOLON_SPACING          => $advice,
+      self::LINT_CONCATENATION_OPERATOR     => $warning,
+      self::LINT_LANGUAGE_CONSTRUCT_PAREN   => $warning,
+      self::LINT_EMPTY_STATEMENT            => $advice,
+      self::LINT_ARRAY_SEPARATOR            => $advice,
+      self::LINT_CONSTRUCTOR_PARENTHESES    => $advice,
+      self::LINT_IMPLICIT_VISIBILITY        => $advice,
+      self::LINT_UNNECESSARY_FINAL_MODIFIER => $advice,
     );
   }
 
   public function getLinterConfigurationOptions() {
     return parent::getLinterConfigurationOptions() + array(
+      'xhpast.blacklisted.function' => array(
+        'type' => 'optional map<string, string>',
+        'help' => pht('Blacklisted functions which should not be used.'),
+      ),
       'xhpast.naminghook' => array(
         'type' => 'optional string',
         'help' => pht(
           'Name of a concrete subclass of ArcanistXHPASTLintNamingHook which '.
           'enforces more granular naming convention rules for symbols.'),
+      ),
+      'xhpast.printf-functions' => array(
+        'type' => 'optional map<string, int>',
+        'help' => pht(
+          '%s-style functions which take a format string and list of values '.
+          'as arguments. The value for the mapping is the start index of the '.
+          'function parameters (the index of the format string parameter).',
+          'printf()'),
       ),
       'xhpast.switchhook' => array(
         'type' => 'optional string',
@@ -180,8 +208,14 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
 
   public function setLinterConfigurationValue($key, $value) {
     switch ($key) {
+      case 'xhpast.blacklisted.function':
+        $this->blacklistedFunctions = $value;
+        return;
       case 'xhpast.naminghook':
         $this->naminghook = $value;
+        return;
+      case 'xhpast.printf-functions':
+        $this->printfFunctions = $value;
         return;
       case 'xhpast.switchhook':
         $this->switchhook = $value;
@@ -199,7 +233,7 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
 
   public function getVersion() {
     // The version number should be incremented whenever a new rule is added.
-    return '10';
+    return '17';
   }
 
   protected function resolveFuture($path, Future $future) {
@@ -253,7 +287,7 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
       'lintPregQuote' => self::LINT_PREG_QUOTE_MISUSE,
       'lintExitExpressions' => self::LINT_EXIT_EXPRESSION,
       'lintArrayIndexWhitespace' => self::LINT_ARRAY_INDEX_SPACING,
-      'lintTODOComments' => self::LINT_TODO_COMMENT,
+      'lintTodoComments' => self::LINT_TODO_COMMENT,
       'lintPrimaryDeclarationFilenameMatch' =>
         self::LINT_CLASS_FILENAME_MISMATCH,
       'lintPlusOperatorOnStrings' => self::LINT_PLUS_OPERATOR_ON_STRINGS,
@@ -271,6 +305,13 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
       'lintEmptyBlockStatements' => self::LINT_EMPTY_STATEMENT,
       'lintArraySeparator' => self::LINT_ARRAY_SEPARATOR,
       'lintConstructorParentheses' => self::LINT_CONSTRUCTOR_PARENTHESES,
+      'lintSwitchStatements' => self::LINT_DUPLICATE_SWITCH_CASE,
+      'lintBlacklistedFunction' => self::LINT_BLACKLISTED_FUNCTION,
+      'lintMethodModifier' => self::LINT_IMPLICIT_VISIBILITY,
+      'lintPropertyModifier' => self::LINT_IMPLICIT_VISIBILITY,
+      'lintCallTimePassByReference' => self::LINT_CALL_TIME_PASS_BY_REF,
+      'lintFormattedString' => self::LINT_FORMATTED_STRING,
+      'lintUnnecessaryFinalModifier' => self::LINT_UNNECESSARY_FINAL_MODIFIER,
     );
 
     foreach ($method_codes as $method => $codes) {
@@ -448,27 +489,44 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
     foreach ($calls as $call) {
       $node = $call->getChildByIndex(0);
       $name = $node->getConcreteString();
-      $version = idx($compat_info['functions'], $name);
 
-      if ($version && version_compare($version['min'], $this->version, '>')) {
-        // Check if whitelisted.
-        $whitelisted = false;
-        foreach (idx($whitelist['function'], $name, array()) as $range) {
-          if (array_intersect($range, array_keys($node->getTokens()))) {
-            $whitelisted = true;
-            break;
-          }
+      $version = idx($compat_info['functions'], $name, array());
+      $min = idx($version, 'min');
+      $max = idx($version, 'max');
+
+      // Check if whitelisted.
+      $whitelisted = false;
+      foreach (idx($whitelist['function'], $name, array()) as $range) {
+        if (array_intersect($range, array_keys($node->getTokens()))) {
+          $whitelisted = true;
+          break;
         }
+      }
 
-        if ($whitelisted) {
-          continue;
-        }
+      if ($whitelisted) {
+        continue;
+      }
 
+      if ($min && version_compare($min, $this->version, '>')) {
         $this->raiseLintAtNode(
           $node,
           self::LINT_PHP_COMPATIBILITY,
-          "This codebase targets PHP {$this->version}, but `{$name}()` was ".
-          "not introduced until PHP {$version['min']}.");
+          pht(
+            'This codebase targets PHP %s, but `%s()` was not '.
+            'introduced until PHP %s.',
+            $this->version,
+            $name,
+            $min));
+      } else if ($max && version_compare($max, $this->version, '<')) {
+        $this->raiseLintAtNode(
+          $node,
+          self::LINT_PHP_COMPATIBILITY,
+          pht(
+            'This codebase targets PHP %s, but `%s()` was '.
+            'removed in PHP %s.',
+            $this->version,
+            $name,
+            $max));
       } else if (array_key_exists($name, $compat_info['params'])) {
         $params = $call->getChildOfType(1, 'n_CALL_PARAMETER_LIST');
         foreach (array_values($params->getChildren()) as $i => $param) {
@@ -477,9 +535,13 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
             $this->raiseLintAtNode(
               $param,
               self::LINT_PHP_COMPATIBILITY,
-              "This codebase targets PHP {$this->version}, but parameter ".
-              ($i + 1)." of `{$name}()` was not introduced until PHP ".
-              "{$version}.");
+              pht(
+                'This codebase targets PHP %s, but parameter %d '.
+                'of `%s()` was not introduced until PHP %s.',
+                $this->version,
+                $i + 1,
+                $name,
+                $version));
           }
         }
       }
@@ -491,15 +553,21 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
           $this->raiseLintAtNode(
             $node,
             self::LINT_PHP_COMPATIBILITY,
-            "This codebase targets PHP {$this->windowsVersion} on Windows, ".
-            "but `{$name}()` is not available there.");
+            pht(
+              'This codebase targets PHP %s on Windows, '.
+              'but `%s()` is not available there.',
+              $this->windowsVersion,
+              $name));
         } else if (version_compare($windows, $this->windowsVersion, '>')) {
           $this->raiseLintAtNode(
             $node,
             self::LINT_PHP_COMPATIBILITY,
-            "This codebase targets PHP {$this->windowsVersion} on Windows, ".
-            "but `{$name}()` is not available there until PHP ".
-            "{$this->windowsVersion}.");
+            pht(
+              'This codebase targets PHP %s on Windows, '.
+              'but `%s()` is not available there until PHP %s.',
+              $this->windowsVersion,
+              $name,
+              $windows));
         }
       }
     }
@@ -507,9 +575,10 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
     $classes = $root->selectDescendantsOfType('n_CLASS_NAME');
     foreach ($classes as $node) {
       $name = $node->getConcreteString();
-      $version = idx($compat_info['interfaces'], $name);
+      $version = idx($compat_info['interfaces'], $name, array());
       $version = idx($compat_info['classes'], $name, $version);
-      if ($version && version_compare($version['min'], $this->version, '>')) {
+      $min = idx($version, 'min');
+      $max = idx($version, 'max');
         // Check if whitelisted.
         $whitelisted = false;
         foreach (idx($whitelist['class'], $name, array()) as $range) {
@@ -523,27 +592,62 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
           continue;
         }
 
+      if ($min && version_compare($min, $this->version, '>')) {
         $this->raiseLintAtNode(
           $node,
           self::LINT_PHP_COMPATIBILITY,
-          "This codebase targets PHP {$this->version}, but `{$name}` was not ".
-          "introduced until PHP {$version['min']}.");
+          pht(
+            'This codebase targets PHP %s, but `%s` was not '.
+            'introduced until PHP %s.',
+            $this->version,
+            $name,
+            $min));
+      } else if ($max && version_compare($max, $this->version, '<')) {
+        $this->raiseLintAtNode(
+          $node,
+          self::LINT_PHP_COMPATIBILITY,
+          pht(
+            'This codebase targets PHP %s, but `%s` was '.
+            'removed in PHP %s.',
+            $this->version,
+            $name,
+            $max));
       }
     }
 
     // TODO: Technically, this will include function names. This is unlikely to
     // cause any issues (unless, of course, there existed a function that had
     // the same name as some constant).
-    $constants = $root->selectDescendantsOfType('n_SYMBOL_NAME');
+    $constants = $root->selectDescendantsOfTypes(array(
+      'n_SYMBOL_NAME',
+      'n_MAGIC_SCALAR',
+    ));
     foreach ($constants as $node) {
       $name = $node->getConcreteString();
-      $version = idx($compat_info['constants'], $name);
-      if ($version && version_compare($version['min'], $this->version, '>')) {
+      $version = idx($compat_info['constants'], $name, array());
+      $min = idx($version, 'min');
+      $max = idx($version, 'max');
+
+      if ($min && version_compare($min, $this->version, '>')) {
         $this->raiseLintAtNode(
           $node,
           self::LINT_PHP_COMPATIBILITY,
-          "This codebase targets PHP {$this->version}, but `{$name}` was not ".
-          "introduced until PHP {$version['min']}.");
+          pht(
+            'This codebase targets PHP %s, but `%s` was not '.
+            'introduced until PHP %s.',
+            $this->version,
+            $name,
+            $min));
+      } else if ($max && version_compare($max, $this->version, '<')) {
+        $this->raiseLintAtNode(
+          $node,
+          self::LINT_PHP_COMPATIBILITY,
+          pht(
+            'This codebase targets PHP %s, but `%s` was '.
+            'removed in PHP %s.',
+            $this->version,
+            $name,
+            $max));
       }
     }
 
@@ -895,7 +999,12 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
     foreach ($nodes as $node) {
       $parent = $node->getParentNode();
 
-      if ($parent && $parent->getTypeName() != 'n_STATEMENT_LIST') {
+      if (!$parent) {
+        continue;
+      }
+
+      $type = $parent->getTypeName();
+      if ($type != 'n_STATEMENT_LIST' && $type != 'n_DECLARE') {
         $this->raiseLintAtNode(
             $node,
             self::LINT_BRACE_FORMATTING,
@@ -1902,9 +2011,13 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
       $statics = $def->selectDescendantsOfType('n_CLASS_STATIC_ACCESS');
       foreach ($statics as $static) {
         $rhs = $static->getChildByIndex(1);
-        $rhs_vars = $def->selectDescendantsOfType('n_VARIABLE');
-        foreach ($rhs_vars as $var) {
-          $exclude_tokens[$var->getID()] = true;
+        if ($rhs->getTypeName() == 'n_VARIABLE') {
+          $exclude_tokens[$rhs->getID()] = true;
+        } else {
+          $rhs_vars = $rhs->selectDescendantsOfType('n_VARIABLE');
+          foreach ($rhs_vars as $var) {
+            $exclude_tokens[$var->getID()] = true;
+          }
         }
       }
 
@@ -2367,9 +2480,11 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
     }
   }
 
-  private function lintTODOComments(XHPASTNode $root) {
-    $comments = $root->selectTokensOfType('T_COMMENT') +
-                $root->selectTokensOfType('T_DOC_COMMENT');
+  private function lintTodoComments(XHPASTNode $root) {
+    $comments = $root->selectTokensOfTypes(array(
+      'T_COMMENT',
+      'T_DOC_COMMENT',
+    ));
 
     foreach ($comments as $token) {
       $value = $token->getValue();
@@ -2860,6 +2975,256 @@ final class ArcanistXHPASTLinter extends ArcanistBaseXHPASTLinter {
           self::LINT_CONSTRUCTOR_PARENTHESES,
           pht('Use parentheses when invoking a constructor.'),
           $class->getConcreteString().'()');
+      }
+    }
+  }
+
+  private function lintSwitchStatements(XHPASTNode $root) {
+    $switch_statements = $root->selectDescendantsOfType('n_SWITCH');
+
+    foreach ($switch_statements as $switch_statement) {
+      $case_statements = $switch_statement
+        ->getChildOfType(1, 'n_STATEMENT_LIST')
+        ->getChildrenOfType('n_CASE');
+      $nodes_by_case = array();
+
+      foreach ($case_statements as $case_statement) {
+        $case = $case_statement
+          ->getChildByIndex(0)
+          ->getSemanticString();
+        $nodes_by_case[$case][] = $case_statement;
+      }
+
+      foreach ($nodes_by_case as $case => $nodes) {
+        if (count($nodes) <= 1) {
+          continue;
+        }
+
+        $node = array_pop($nodes_by_case[$case]);
+        $message = $this->raiseLintAtNode(
+          $node,
+          self::LINT_DUPLICATE_SWITCH_CASE,
+          pht(
+            'Duplicate case in switch statement. PHP will ignore all '.
+            'but the first case.'));
+
+        $locations = array();
+        foreach ($nodes_by_case[$case] as $node) {
+          $locations[] = $this->getOtherLocation($node->getOffset());
+        }
+        $message->setOtherLocations($locations);
+      }
+    }
+  }
+
+  private function lintBlacklistedFunction(XHPASTNode $root) {
+    $calls = $root->selectDescendantsOfType('n_FUNCTION_CALL');
+
+    foreach ($calls as $call) {
+      $node = $call->getChildByIndex(0);
+      $name = $node->getConcreteString();
+
+      $reason = idx($this->blacklistedFunctions, $name);
+
+      if ($reason) {
+        $this->raiseLintAtNode(
+          $node,
+          self::LINT_BLACKLISTED_FUNCTION,
+          $reason);
+      }
+    }
+  }
+
+  private function lintMethodModifier(XHPASTNode $root) {
+    static $visibilities = array(
+      'public',
+      'protected',
+      'private',
+    );
+
+    $methods = $root->selectDescendantsOfType('n_METHOD_DECLARATION');
+
+    foreach ($methods as $method) {
+      $modifiers_list = $method->getChildOfType(
+        0,
+        'n_METHOD_MODIFIER_LIST');
+
+      foreach ($modifiers_list->getChildren() as $modifier) {
+        if (in_array($modifier->getConcreteString(), $visibilities)) {
+          continue 2;
+        }
+      }
+
+      if ($modifiers_list->getChildren()) {
+        $node = $modifiers_list;
+      } else {
+        $node = $method;
+      }
+
+      $this->raiseLintAtNode(
+        $node,
+        self::LINT_IMPLICIT_VISIBILITY,
+        pht('Methods should have their visibility declared explicitly.'),
+        'public '.$node->getConcreteString());
+    }
+  }
+
+  private function lintPropertyModifier(XHPASTNode $root) {
+    static $visibilities = array(
+      'public',
+      'protected',
+      'private',
+    );
+
+    $nodes = $root->selectDescendantsOfType('n_CLASS_MEMBER_MODIFIER_LIST');
+
+    foreach ($nodes as $node) {
+      $modifiers = $node->getChildren();
+
+      foreach ($modifiers as $modifier) {
+        if ($modifier->getConcreteString() == 'var') {
+          $this->raiseLintAtNode(
+            $modifier,
+            self::LINT_IMPLICIT_VISIBILITY,
+            pht(
+              'Use `%s` instead of `%s` to indicate public visibility.',
+              'public',
+              'var'),
+            'public');
+          continue 2;
+        }
+
+        if (in_array($modifier->getConcreteString(), $visibilities)) {
+          continue 2;
+        }
+      }
+
+      $this->raiseLintAtNode(
+        $node,
+        self::LINT_IMPLICIT_VISIBILITY,
+        pht('Properties should have their visibility declared explicitly.'),
+        'public '.$node->getConcreteString());
+    }
+  }
+
+  private function lintCallTimePassByReference(XHPASTNode $root) {
+    $nodes = $root->selectDescendantsOfType('n_CALL_PARAMETER_LIST');
+
+    foreach ($nodes as $node) {
+      $parameters = $node->getChildrenOfType('n_VARIABLE_REFERENCE');
+
+      foreach ($parameters as $parameter) {
+        $this->raiseLintAtNode(
+          $parameter,
+          self::LINT_CALL_TIME_PASS_BY_REF,
+          pht('Call-time pass-by-reference calls are prohibited.'));
+      }
+    }
+  }
+
+  private function lintFormattedString(XHPASTNode $root) {
+    static $functions = array(
+      // Core PHP
+      'fprintf' => 1,
+      'printf' => 0,
+      'sprintf' => 0,
+      'vfprintf' => 1,
+
+      // libphutil
+      'csprintf' => 0,
+      'execx' => 0,
+      'exec_manual' => 0,
+      'hgsprintf' => 0,
+      'hsprintf' => 0,
+      'jsprintf' => 0,
+      'pht' => 0,
+      'phutil_passthru' => 0,
+      'qsprintf' => 1,
+      'queryfx' => 1,
+      'queryfx_all' => 1,
+      'queryfx_one' => 1,
+      'vcsprintf' => 0,
+      'vqsprintf' => 1,
+      'vqueryfx' => 1,
+      'vqueryfx_all' => 1,
+    );
+
+    $function_calls = $root->selectDescendantsOfType('n_FUNCTION_CALL');
+
+    foreach ($function_calls as $call) {
+      $name = $call->getChildByIndex(0)->getConcreteString();
+
+      $name = strtolower($name);
+      $start = idx($functions + $this->printfFunctions, $name);
+
+      if ($start === null) {
+        continue;
+      }
+
+      $parameters = $call->getChildOfType(1, 'n_CALL_PARAMETER_LIST');
+      $argc = count($parameters->getChildren()) - $start;
+
+      if ($argc < 1) {
+        $this->raiseLintAtNode(
+          $call,
+          self::LINT_FORMATTED_STRING,
+          pht('This function is expected to have a format string.'));
+          continue;
+      }
+
+      $format = $parameters->getChildByIndex($start);
+      if ($format->getTypeName() != 'n_STRING_SCALAR') {
+        continue;
+      }
+
+      $argv = array($format->evalStatic()) + array_fill(0, $argc, null);
+
+      try {
+        xsprintf(null, null, $argv);
+      } catch (BadFunctionCallException $ex) {
+        $this->raiseLintAtNode(
+          $call,
+          self::LINT_FORMATTED_STRING,
+          $ex->getMessage());
+      } catch (InvalidArgumentException $ex) {
+        // Ignore.
+      }
+    }
+  }
+
+  private function lintUnnecessaryFinalModifier(XHPASTNode $root) {
+    $classes = $root->selectDescendantsOfType('n_CLASS_DECLARATION');
+
+    foreach ($classes as $class) {
+      $attributes = $class->getChildOfType(0, 'n_CLASS_ATTRIBUTES');
+      $is_final = false;
+
+      foreach ($attributes->getChildren() as $attribute) {
+        if ($attribute->getConcreteString() == 'final') {
+          $is_final = true;
+          break;
+        }
+      }
+
+      if (!$is_final) {
+        continue;
+      }
+
+      $methods = $class->selectDescendantsOfType('n_METHOD_DECLARATION');
+      foreach ($methods as $method) {
+        $attributes = $method->getChildOfType(0, 'n_METHOD_MODIFIER_LIST');
+
+        foreach ($attributes->getChildren() as $attribute) {
+          if ($attribute->getConcreteString() == 'final') {
+            $this->raiseLintAtNode(
+              $attribute,
+              self::LINT_UNNECESSARY_FINAL_MODIFIER,
+              pht(
+                'Unnecessary %s modifier in %s class.',
+                'final',
+                'final'));
+          }
+        }
       }
     }
   }
