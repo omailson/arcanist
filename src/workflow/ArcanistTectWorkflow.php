@@ -237,7 +237,7 @@ EOTEXT
   }
 
 
-  protected function getSupportedRevisionControlSystems() {
+  public function getSupportedRevisionControlSystems() {
     return array('git', 'hg');
   }
 
